@@ -1,11 +1,5 @@
-import { HealthStatus } from "../components/HealthStatus";
+import { Dashboard } from "../components/dashboard/Dashboard";
 
 export default function HomePage() {
-  return (
-    <main>
-      <h1>LabOS</h1>
-      <p>LabOS is running.</p>
-      <HealthStatus />
-    </main>
-  );
+  return <Dashboard />;
 }
