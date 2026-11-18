@@ -2,15 +2,17 @@
 import { useLocale } from "./LocaleProvider";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { projects } from "../../lib/dashboardData";
+import type { Project } from "../../types/dashboard";
 import { Icon } from "./Icon";
 
 export function QuickCapture({
   inputRef,
   onCapture,
+  projects,
 }: {
   inputRef: RefObject<HTMLInputElement | null>;
   onCapture: (title: string, projectId?: string) => void;
+  projects: Project[];
 }) {
   const { t } = useLocale();
 
@@ -77,6 +79,7 @@ export function QuickCapture({
         </label>
         <select
           id="capture-project"
+          disabled={projects.length === 0}
           value={projectId}
           onChange={(event) => setProjectId(event.target.value)}
         >

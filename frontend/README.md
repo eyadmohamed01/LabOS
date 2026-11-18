@@ -37,6 +37,14 @@ Capture, task resolution/reopening, and Undo update React state only. Refreshing
 
 Keyboard support includes `N` to focus capture, `/` to open search, `Escape` to close dialogs/navigation, and a skip link. Shortcuts do not intercept text entry. Native dialogs contain focus; the mobile navigation contains focus and makes background content inert.
 
+## Empty dashboard preview
+
+In development (`npm run dev -- --webpack`), use **Development preview → Empty Dashboard** above Quick Capture, or open `http://localhost:3000/?dashboard=empty`. Choose **Populated Dashboard** to return. The control and query override are disabled in production.
+
+The empty workspace supplies no projects or events to the sidebar, capture field, metrics, or search. It uses a generic professor identity. **Add a task** focuses the existing session-only capture field; captured tasks appear in Attention, metrics, and search. Project creation and calendar connection are visibly marked **Coming soon** and disabled. There are no integration calls or backend changes.
+
+Both previews keep separate task/completion state while switching, so populated sample edits stay intact. Switching closes overlays and resets filter/draft UI; refreshing clears both sessions. Themes and EN/DE translations apply to both views. Zero-data charts are omitted from the first-use view.
+
 ## Local checks
 
 From `frontend/`, with Node.js and the locked dependencies installed:

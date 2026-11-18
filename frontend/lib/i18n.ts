@@ -4,6 +4,34 @@ export type MessageValues = Record<string, string | number>;
 // English source messages are stable keys. Every supported locale must cover the catalog.
 const german = {
   Overview: "Übersicht",
+  "Development preview": "Entwicklungsvorschau",
+  "Preview workspace · Changes reset on refresh":
+    "Vorschau-Arbeitsbereich · Änderungen werden beim Neuladen zurückgesetzt",
+  "Dashboard preview": "Dashboard-Vorschau",
+  "Populated Dashboard": "Dashboard mit Beispieldaten",
+  "Empty Dashboard": "Leeres Dashboard",
+  Professor: "Professor/in",
+  "Your workspace": "Ihr Arbeitsbereich",
+  "No projects yet": "Noch keine Projekte",
+  "Set up your workspace": "Arbeitsbereich einrichten",
+  "Start with a task. Projects and calendar connections can be added when those features become available.":
+    "Beginnen Sie mit einer Aufgabe. Projekte und Kalender können ergänzt werden, sobald diese Funktionen verfügbar sind.",
+  "No tasks to review yet": "Noch keine Aufgaben zu prüfen",
+  "Overdue tasks and follow-ups will appear here as you add work to your workspace.":
+    "Hier erscheinen überfällige Aufgaben und Rückfragen, sobald Sie Aufgaben hinzufügen.",
+  "Add a task": "Aufgabe hinzufügen",
+  "No events scheduled": "Keine Termine geplant",
+  "Your meetings and deadlines will appear here. Calendar connections are not available yet.":
+    "Hier erscheinen Ihre Besprechungen und Fristen. Kalenderverbindungen sind noch nicht verfügbar.",
+  "Connect calendar": "Kalender verbinden",
+  "Coming soon": "Demnächst verfügbar",
+  "Create your first project": "Erstes Projekt erstellen",
+  "Keep related tasks, milestones, and documents together. Project creation is coming soon.":
+    "Bündeln Sie zusammengehörige Aufgaben, Meilensteine und Dokumente. Das Erstellen von Projekten wird bald verfügbar sein.",
+  "Create project": "Projekt erstellen",
+  "Nothing to search yet": "Noch keine durchsuchbaren Inhalte",
+  "Tasks you capture will be searchable here.":
+    "Erfasste Aufgaben können Sie hier durchsuchen.",
   Light: "Hell",
   Dark: "Dunkel",
   "Switch to light mode": "Zum hellen Modus wechseln",

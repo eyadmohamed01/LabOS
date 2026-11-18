@@ -1,7 +1,7 @@
 "use client";
 import { useLocale } from "./LocaleProvider";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { addDays, timelineDetail, timelinePeriod } from "../../lib/dashboard";
 import { currentUserId, workspaceDate } from "../../lib/dashboardData";
 import { conflictingEvents } from "../../lib/dashboardInsights";
@@ -13,9 +13,11 @@ const periods = ["Today", "Tomorrow", "Coming up", "Later"] as const;
 export function TimelinePanel({
   items,
   onDetail,
+  emptyContent,
 }: {
   items: TimelineItem[];
   onDetail: (detail: ItemDetail) => void;
+  emptyContent?: ReactNode;
 }) {
   const { t, text, locale, formatDate } = useLocale();
 
@@ -41,6 +43,8 @@ export function TimelinePanel({
       return next;
     });
   }
+
+  if (items.length === 0 && emptyContent) return emptyContent;
 
   return (
     <section aria-labelledby="timeline-heading" className="timeline-zone">

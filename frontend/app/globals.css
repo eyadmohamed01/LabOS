@@ -623,11 +623,6 @@ kbd {
   border: 1px solid white;
   border-radius: 50%;
 }
-.topbar-controls > .avatar {
-  width: 29px;
-  height: 29px;
-  font-size: 9px;
-}
 .dashboard-main {
   padding: 20px 32px 0;
   max-width: none;
@@ -1792,9 +1787,6 @@ h1:focus {
   .notification-button {
     width: 29px;
   }
-  .topbar-controls > .avatar {
-    margin-left: 3px;
-  }
   .dashboard-main {
     padding: 20px 20px 0;
   }
@@ -2893,6 +2885,155 @@ h1:focus {
   }
 }
 
+/* First-use content shares the operational panels and theme tokens. */
+.dashboard-preview-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  margin: -3px 0 16px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.dashboard-preview-control select {
+  height: 29px;
+  max-width: 230px;
+  padding: 0 8px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+}
+.first-use-intro {
+  padding: 0 0 19px;
+  margin-top: -2px;
+}
+.first-use-intro h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.first-use-intro p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+  max-width: 720px;
+}
+.first-use-dashboard .dashboard-zones {
+  align-items: stretch;
+}
+.first-use-panel {
+  padding: 25px;
+  min-height: 245px;
+  align-items: flex-start;
+}
+.first-use-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  color: var(--violet-ink);
+  background: var(--violet-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.first-use-panel h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 17px 0 8px;
+}
+.first-use-panel > p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  max-width: 380px;
+}
+.first-use-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+.first-use-actions .button:disabled {
+  color: var(--muted);
+  background: var(--background);
+  border-color: var(--border);
+}
+.coming-soon-label {
+  font-size: 10px;
+  color: var(--muted);
+}
+.first-use-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.first-project-panel {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 23px;
+}
+.first-project-panel > div:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+.first-project-panel h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.first-project-panel p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 580px;
+}
+.first-project-panel .first-use-actions {
+  margin-top: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.sidebar-empty-projects {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #aaa3b5;
+  padding: 8px 12px;
+}
+.capture-form select:disabled {
+  color: var(--muted);
+  opacity: 0.7;
+  cursor: default;
+}
+@media (max-width: 760px) {
+  .first-use-panel {
+    padding: 22px;
+    min-height: 0;
+  }
+  .first-project-panel {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 20px;
+    gap: 14px;
+  }
+  .first-project-panel > div:first-of-type {
+    flex-basis: calc(100% - 54px);
+  }
+  .first-project-panel .first-use-actions {
+    margin-left: 53px;
+  }
+  .first-use-intro p {
+    font-size: 12px;
+  }
+}
+
 /* Theme preference is local to this browser; both palettes share the same layout. */
 .main-shell {
   background: var(--background);
@@ -3233,10 +3374,5 @@ h1:focus {
   }
   .topbar-controls {
     gap: 7px;
-  }
-}
-@media (max-width: 480px) {
-  .topbar-controls > .avatar {
-    display: none;
   }
 }

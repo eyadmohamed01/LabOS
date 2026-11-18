@@ -1,14 +1,10 @@
 import type { Section } from "../../types/dashboard";
-import {
-  currentUserId,
-  people,
-  projects,
-  workspaceShortName,
-} from "../../lib/dashboardData";
+import { currentUserId, workspaceShortName } from "../../lib/dashboardData";
 import { getPerson } from "../../lib/dashboard";
 import { Icon } from "./Icon";
 import { Avatar } from "./Primitives";
 import { useLocale } from "./LocaleProvider";
+import type { Project } from "../../types/dashboard";
 
 const navigation: { id: Section; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -26,12 +22,18 @@ export function Sidebar({
   onProject,
   onClose,
   onOverview,
+  projects,
+  memberCount,
+  firstUse = false,
 }: {
   open: boolean;
   attentionCount: number;
   onProject: (id: string) => void;
   onClose: () => void;
   onOverview: () => void;
+  projects: Project[];
+  memberCount: number;
+  firstUse?: boolean;
 }) {
   const { t, text } = useLocale();
   const currentUser = getPerson(currentUserId);
@@ -104,6 +106,9 @@ export function Sidebar({
         <span>{projects.length}</span>
       </div>
       <nav aria-label={t("Project shortcuts")} className="project-shortcuts">
+        {projects.length === 0 && (
+          <p className="sidebar-empty-projects">{t("No projects yet")}</p>
+        )}
         {projects.map((project) => (
           <button key={project.id} onClick={() => onProject(project.id)}>
             <span className={`project-dot tone-${project.tone}`} />
@@ -115,17 +120,27 @@ export function Sidebar({
         <div className="sidebar-note">
           <Icon name="projects" size={18} />
           <p>
-            {t("{projects} projects · {people} members", {
-              projects: projects.length,
-              people: people.length,
-            })}
+            {firstUse
+              ? t("No projects yet")
+              : t("{projects} projects · {people} members", {
+                  projects: projects.length,
+                  people: memberCount,
+                })}
           </p>
         </div>
         <div className="sidebar-profile">
-          <Avatar personId={currentUserId} />
+          {firstUse ? (
+            <span className="avatar tone-violet" aria-label={t("Professor")}>
+              P
+            </span>
+          ) : (
+            <Avatar personId={currentUserId} />
+          )}
           <div>
-            <strong>{currentUser?.name}</strong>
-            <span>{text(currentUser?.role ?? "")}</span>
+            <strong>{firstUse ? t("Professor") : currentUser?.name}</strong>
+            <span>
+              {firstUse ? t("Your workspace") : text(currentUser?.role ?? "")}
+            </span>
           </div>
         </div>
       </div>

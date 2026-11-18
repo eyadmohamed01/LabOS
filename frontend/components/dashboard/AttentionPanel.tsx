@@ -1,7 +1,7 @@
 "use client";
 import { useLocale } from "./LocaleProvider";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useAnimatedList } from "../../hooks/useAnimatedList";
 import type {
   AttentionItem,
@@ -24,11 +24,13 @@ export function AttentionPanel({
   completedIds,
   onToggle,
   onDetail,
+  emptyContent,
 }: {
   items: AttentionItem[];
   completedIds: ReadonlySet<string>;
   onToggle: (id: string) => void;
   onDetail: (detail: ItemDetail) => void;
+  emptyContent?: ReactNode;
 }) {
   const { t, text, locale } = useLocale();
 
@@ -46,6 +48,8 @@ export function AttentionPanel({
       .map((item) => `${item.id}:${completedIds.has(item.id)}`)
       .join("|"),
   );
+
+  if (items.length === 0 && emptyContent) return emptyContent;
 
   return (
     <section aria-labelledby="attention-heading" className="attention-zone">

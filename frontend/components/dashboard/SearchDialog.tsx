@@ -8,7 +8,6 @@ import {
   projectDetail,
   timelineDetail,
 } from "../../lib/dashboard";
-import { projects, timelineItems } from "../../lib/dashboardData";
 import {
   highlightMatches,
   normalizeSearch,
@@ -17,7 +16,12 @@ import {
   type SearchFilters,
   type SearchType,
 } from "../../lib/search";
-import type { AttentionItem, ItemDetail } from "../../types/dashboard";
+import type {
+  AttentionItem,
+  ItemDetail,
+  Project,
+  TimelineItem,
+} from "../../types/dashboard";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
 import { useLocale } from "./LocaleProvider";
@@ -54,11 +58,15 @@ export function SearchDialog({
   completedIds,
   onClose,
   onSelect,
+  projects,
+  timelineItems,
 }: {
   items: AttentionItem[];
   completedIds: ReadonlySet<string>;
   onClose: () => void;
   onSelect: (detail: ItemDetail) => void;
+  projects: Project[];
+  timelineItems: TimelineItem[];
 }) {
   const { t, text, locale, formatDate } = useLocale();
   const [query, setQuery] = useState("");
@@ -105,7 +113,7 @@ export function SearchDialog({
         detail: timelineDetail(item, locale),
       })),
     ],
-    [items, completedIds, locale, text, formatDate],
+    [items, completedIds, projects, timelineItems, locale, text, formatDate],
   );
   const filters: SearchFilters = {
     status: status === "all" ? undefined : status,
@@ -287,7 +295,7 @@ export function SearchDialog({
         )}
       </div>
       <p className="search-summary" role="status">
-        {isSuggestion
+        {isSuggestion && indexed.length > 0
           ? t("Suggested open tasks")
           : t(hits.length === 1 ? "{count} result" : "{count} results", {
               count: hits.length,
@@ -360,8 +368,16 @@ export function SearchDialog({
       {hits.length === 0 && (
         <div className="empty-state">
           <Icon name="search" size={25} />
-          <h3>{t("No results")}</h3>
-          <p>{t("Try fewer words or adjust the filters.")}</p>
+          <h3>
+            {t(indexed.length === 0 ? "Nothing to search yet" : "No results")}
+          </h3>
+          <p>
+            {t(
+              indexed.length === 0
+                ? "Tasks you capture will be searchable here."
+                : "Try fewer words or adjust the filters.",
+            )}
+          </p>
         </div>
       )}
       <div className="search-keyboard-help">

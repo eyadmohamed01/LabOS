@@ -13,6 +13,7 @@ import {
   projects,
   timelineItems,
   workspaceDate,
+  people,
 } from "../../lib/dashboardData";
 import type { AttentionItem, ItemDetail } from "../../types/dashboard";
 import { ActiveProjects } from "./ActiveProjects";
@@ -20,31 +21,63 @@ import { AttentionPanel } from "./AttentionPanel";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
 import { LocaleProvider, useLocale } from "./LocaleProvider";
-import { Avatar, ProjectLabel } from "./Primitives";
+import { ProjectLabel } from "./Primitives";
 import { QuickCapture } from "./QuickCapture";
 import { SearchDialog } from "./SearchDialog";
 import { Sidebar } from "./Sidebar";
 import { TimelinePanel } from "./TimelinePanel";
 import { WorkInsights, WorkMetrics } from "./WorkMetrics";
 import { ThemeToggle } from "./ThemeToggle";
+import { EmptyDashboard } from "./EmptyDashboard";
+import type { DashboardPreview } from "../../lib/dashboardPreview";
 
 type Overlay = "search" | "notifications" | "navigation" | null;
 type Notice = { message: string; undoId?: string };
 
-export function Dashboard() {
+export function Dashboard({
+  initialPreview = "populated",
+}: {
+  initialPreview?: DashboardPreview;
+}) {
   return (
     <LocaleProvider>
-      <DashboardView />
+      <DashboardView initialPreview={initialPreview} />
     </LocaleProvider>
   );
 }
 
-function DashboardView() {
+function DashboardView({
+  initialPreview,
+}: {
+  initialPreview: DashboardPreview;
+}) {
   const { locale, setLocale, t, text, formatDate } = useLocale();
-  const [items, setItems] = useState<AttentionItem[]>(attentionItems);
-  const [completedIds, setCompletedIds] = useState<ReadonlySet<string>>(
-    new Set(),
-  );
+  const [preview, setPreview] = useState<DashboardPreview>(initialPreview);
+  const [workspaceItems, setWorkspaceItems] = useState<
+    Record<DashboardPreview, AttentionItem[]>
+  >({ populated: attentionItems, empty: [] });
+  const [workspaceCompleted, setWorkspaceCompleted] = useState<
+    Record<DashboardPreview, ReadonlySet<string>>
+  >({ populated: new Set(), empty: new Set() });
+  const firstUse = preview === "empty";
+  const activeProjects = firstUse ? [] : projects;
+  const schedule = firstUse ? [] : timelineItems;
+  const items = workspaceItems[preview];
+  const completedIds = workspaceCompleted[preview];
+  function setItems(update: (previous: AttentionItem[]) => AttentionItem[]) {
+    setWorkspaceItems((previous) => ({
+      ...previous,
+      [preview]: update(previous[preview]),
+    }));
+  }
+  function setCompletedIds(
+    update: (previous: ReadonlySet<string>) => ReadonlySet<string>,
+  ) {
+    setWorkspaceCompleted((previous) => ({
+      ...previous,
+      [preview]: update(previous[preview]),
+    }));
+  }
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [detail, setDetail] = useState<ItemDetail | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -56,6 +89,17 @@ function DashboardView() {
   const unresolvedCount = items.filter(
     (item) => !completedIds.has(item.id),
   ).length;
+
+  function changePreview(next: DashboardPreview) {
+    setPreview(next);
+    setOverlay(null);
+    setDetail(null);
+    setNotice(null);
+    const url = new URL(window.location.href);
+    if (next === "empty") url.searchParams.set("dashboard", "empty");
+    else url.searchParams.delete("dashboard");
+    window.history.replaceState(null, "", url);
+  }
 
   useEffect(() => {
     document.title = `${t("Overview")} · LabOS`;
@@ -207,7 +251,7 @@ function DashboardView() {
       label: "Just captured",
       description: "Captured for review.",
       projectId,
-      assigneeId: currentUserId,
+      assigneeId: firstUse ? "" : currentUserId,
       priority: "normal",
     };
     setItems((previous) => [item, ...previous]);
@@ -238,6 +282,9 @@ function DashboardView() {
         <Sidebar
           open={overlay === "navigation"}
           attentionCount={unresolvedCount}
+          projects={activeProjects}
+          memberCount={firstUse ? 0 : people.length}
+          firstUse={firstUse}
           onProject={openProject}
           onClose={closeNavigation}
           onOverview={() => {
@@ -294,7 +341,6 @@ function DashboardView() {
               <Icon name="bell" size={20} />
               {unresolvedCount > 0 && <span className="notification-dot" />}
             </button>
-            <Avatar personId={currentUserId} />
           </div>
         </header>
         <main id="main-content" className="dashboard-main">
@@ -310,34 +356,87 @@ function DashboardView() {
               })}
             </time>
           </div>
-          <QuickCapture inputRef={captureRef} onCapture={capture} />
-          <WorkMetrics
-            items={items}
-            completedIds={completedIds}
-            schedule={timelineItems}
-            referenceDate={workspaceDate}
+          {process.env.NODE_ENV === "development" && (
+            <div className="dashboard-preview-control">
+              <span>{t("Development preview")}</span>
+              <label>
+                <span className="sr-only">{t("Dashboard preview")}</span>
+                <select
+                  value={preview}
+                  onChange={(event) =>
+                    changePreview(
+                      event.target.value === "empty" ? "empty" : "populated",
+                    )
+                  }
+                >
+                  <option value="populated">{t("Populated Dashboard")}</option>
+                  <option value="empty">{t("Empty Dashboard")}</option>
+                </select>
+              </label>
+            </div>
+          )}
+          {firstUse && (
+            <div className="first-use-intro">
+              <h2>{t("Set up your workspace")}</h2>
+              <p>
+                {t(
+                  "Start with a task. Projects and calendar connections can be added when those features become available.",
+                )}
+              </p>
+            </div>
+          )}
+          <QuickCapture
+            key={preview}
+            projects={activeProjects}
+            inputRef={captureRef}
+            onCapture={capture}
           />
-          <div className="dashboard-zones">
-            <div className="work-zone">
-              <AttentionPanel
+          {firstUse ? (
+            <EmptyDashboard
+              items={items}
+              completedIds={completedIds}
+              referenceDate={workspaceDate}
+              onAddTask={() => captureRef.current?.focus()}
+              onToggle={toggleItem}
+              onDetail={openDetail}
+            />
+          ) : (
+            <>
+              <WorkMetrics
                 items={items}
                 completedIds={completedIds}
-                onToggle={toggleItem}
-                onDetail={openDetail}
+                schedule={timelineItems}
+                referenceDate={workspaceDate}
               />
-              <WorkInsights items={items} completedIds={completedIds} />
-            </div>
-            <TimelinePanel items={timelineItems} onDetail={openDetail} />
-          </div>
-          <ActiveProjects
-            projects={projects}
-            items={items}
-            completedIds={completedIds}
-            onProject={openProject}
-          />
+              <div className="dashboard-zones">
+                <div className="work-zone">
+                  <AttentionPanel
+                    items={items}
+                    completedIds={completedIds}
+                    onToggle={toggleItem}
+                    onDetail={openDetail}
+                  />
+                  <WorkInsights items={items} completedIds={completedIds} />
+                </div>
+                <TimelinePanel items={timelineItems} onDetail={openDetail} />
+              </div>
+              <ActiveProjects
+                projects={projects}
+                items={items}
+                completedIds={completedIds}
+                onProject={openProject}
+              />
+            </>
+          )}
           <footer className="workspace-footer">
             <span className="footer-brand">LabOS</span>
-            <span>{t("Sample data · Changes reset on refresh")}</span>
+            <span>
+              {t(
+                firstUse
+                  ? "Preview workspace · Changes reset on refresh"
+                  : "Sample data · Changes reset on refresh",
+              )}
+            </span>
           </footer>
         </main>
       </div>
@@ -345,6 +444,8 @@ function DashboardView() {
         <SearchDialog
           items={items}
           completedIds={completedIds}
+          projects={activeProjects}
+          timelineItems={schedule}
           onClose={() => setOverlay(null)}
           onSelect={openDetail}
         />
