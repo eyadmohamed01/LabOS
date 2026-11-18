@@ -30,6 +30,7 @@ import { WorkInsights, WorkMetrics } from "./WorkMetrics";
 import { ThemeToggle } from "./ThemeToggle";
 import { EmptyDashboard } from "./EmptyDashboard";
 import type { DashboardPreview } from "../../lib/dashboardPreview";
+import { createCaptureId } from "../../lib/captureId";
 
 type Overlay = "search" | "notifications" | "navigation" | null;
 type Notice = { message: string; undoId?: string };
@@ -245,7 +246,7 @@ function DashboardView({
 
   function capture(title: string, projectId?: string) {
     const item: AttentionItem = {
-      id: `capture-${crypto.randomUUID()}`,
+      id: createCaptureId(),
       title,
       kind: "capture",
       label: "Just captured",

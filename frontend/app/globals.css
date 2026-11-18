@@ -807,7 +807,7 @@ h1:focus {
   background: #efedf1;
   border: 1px solid #e7e4eb;
   border-radius: 3px;
-  color: #88818f;
+  color: #68616f;
   margin-left: 1px;
   letter-spacing: 0;
 }
@@ -834,7 +834,7 @@ h1:focus {
   padding: 0;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  color: #827c89;
+  color: var(--muted);
   font-size: 10px;
   white-space: nowrap;
   min-height: 42px;
@@ -846,7 +846,7 @@ h1:focus {
   font:
     9px Consolas,
     monospace;
-  color: #a39ba9;
+  color: var(--muted);
 }
 .filter-row .filter-active {
   color: var(--violet-ink);
@@ -980,7 +980,7 @@ h1:focus {
   border-top: 1px solid var(--border);
   padding: 8px 17px;
   background: #fdfcfd;
-  color: #8b8394;
+  color: var(--muted);
   font-size: 9px;
   margin-top: auto;
 }
@@ -1051,7 +1051,7 @@ h1:focus {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #7d7685;
+  color: var(--muted);
   font-size: 12px;
 }
 .timeline-toolbar svg {
@@ -1062,7 +1062,7 @@ h1:focus {
   gap: 5px;
   align-items: center;
   font-size: 12px;
-  color: #87808f;
+  color: var(--muted);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -1131,7 +1131,7 @@ h1:focus {
   font:
     9px Consolas,
     monospace;
-  color: #aca2b8;
+  color: var(--muted);
 }
 .timeline-group-heading > svg {
   color: #a39aaa;

@@ -33,7 +33,7 @@ make dev
 - `lib/i18n.ts` contains a typed English/German message catalog. The EN/DE control updates interface labels, document language, and `Intl.DateTimeFormat` output. It is a session-only frontend preference, ready for a future account setting. Research titles, descriptions, and user-authored text retain their original language.
 - Core interaction motion uses CSS and the Web Animations API: spring-shaped feedback, coordinated panel entry, dialog entry/exit, capture confirmation, and FLIP list reflow in `hooks/useAnimatedList.ts`. These brief animations remain enabled independently of the system motion preference, as specified for this frontend.
 
-Capture, task resolution/reopening, and Undo update React state only. Refreshing resets the workspace. Search covers the dashboard’s sample tasks, projects, and schedule entries. Item/project dialogs show their context without leaving Overview. There are no new API endpoints, calendar connections, document downloads, authentication flows, or persistent writes.
+Capture, task resolution/reopening, and Undo update React state only. Refreshing resets the workspace. Capture IDs are session-local identifiers that also work over HTTP/LAN without secure-context browser APIs. Search covers the dashboard’s sample tasks, projects, and schedule entries. Item/project dialogs show their context without leaving Overview. There are no new API endpoints, calendar connections, document downloads, authentication flows, or persistent writes.
 
 Keyboard support includes `N` to focus capture, `/` to open search, `Escape` to close dialogs/navigation, and a skip link. Shortcuts do not intercept text entry. Native dialogs contain focus; the mobile navigation contains focus and makes background content inert.
 
@@ -58,6 +58,6 @@ node --test tests/*.test.mjs
 
 The repository currently has no lint script or ESLint configuration. For hot reload without Docker, use `npm run dev -- --webpack` and open the printed local URL. The existing Next.js configuration produces a standalone production build.
 
-The dependency-free Node test runner uses native TypeScript stripping (Node 22.18+ or Node 24). Tests cover short-query precision, ranking, multi-term matching, typos, German normalization, combined filters, session records, metric boundaries, and meeting overlaps.
+The dependency-free Node test runner uses native TypeScript stripping (Node 22.18+ or Node 24). Tests cover short-query precision, ranking, multi-term matching, typos, German normalization, combined filters, session records, metric boundaries, meeting overlaps, and capture IDs without browser crypto or a monotonic clock.
 
 For a UI smoke test, check capture (including blank input), attention categories, resolution and Undo, search and its no-results state, and event/project detail dialogs. Check EN/DE labels, dates, and longer German strings on desktop. Verify keyboard focus and responsive overflow. Sample edits should reset on refresh.
