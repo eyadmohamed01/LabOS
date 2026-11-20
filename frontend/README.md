@@ -2,7 +2,7 @@
 
 Next.js application for LabOS, written in React and TypeScript.
 
-The operational dashboard at `/` brings together Quick Capture, Attention, a grouped Timeline, and Active Projects. This change implements **Overview only**. Other sidebar sections are visibly disabled placeholders for future work; there are no additional screens or routes.
+The operational dashboard at `/` brings together Quick Capture, Attention, a grouped Timeline, and Active Projects. This change implements **Overview** and **Tasks**. Other sidebar sections are visibly disabled placeholders for future work. Switching between Overview and Tasks is client-side state in `Dashboard.tsx`; there are no additional routes.
 
 Run it from the repository root:
 
@@ -36,6 +36,17 @@ make dev
 Capture, task resolution/reopening, and Undo update React state only. Refreshing resets the workspace. Capture IDs are session-local identifiers that also work over HTTP/LAN without secure-context browser APIs. Search covers the dashboard’s sample tasks, projects, and schedule entries. Item/project dialogs show their context without leaving Overview. There are no new API endpoints, calendar connections, document downloads, authentication flows, or persistent writes.
 
 Keyboard support includes `N` to focus capture, `/` to open search, `Escape` to close dialogs/navigation, and a skip link. Shortcuts do not intercept text entry. Native dialogs contain focus; the mobile navigation contains focus and makes background content inert.
+
+## Tasks page
+
+Sidebar → **Tasks** opens the task dashboard, built from the Implementation Brief (§8–§10, §15, §24, §34).
+
+- `types/tasks.ts` is the Task model: owner, requester, deadline (date + optional time), status (`open`, `in-progress`, `completed`, `cancelled`), last external contact, follow-up threshold, milestone flag and `blocksId`. There is deliberately **no "waiting" status**; waiting is derived from owner/requester.
+- `lib/tasks.ts` holds all rules as pure functions (no clock, no React): owner/requester relationship, overdue (date-only deadlines become overdue the next day), working-day arithmetic (Mon–Fri, no holidays), the five-condition follow-up trigger with the 5-working-day default, derived blockers, and the saved views.
+- Saved views (tabs with live counts): Active, My overdue, Waiting for others, Others waiting for me, Due this week, Blocked milestones, Completed. "Open Decisions" belongs to the future Decisions section.
+- `lib/taskData.ts` is fictional sample data covering every rule. `components/dashboard/TasksView.tsx` takes `Task[]`-shaped props, so an API adapter can replace the sample data without touching the UI. Overview items are converted with `attentionToTask`; a follow-up owned by someone else counts as "waiting for".
+- Not yet implemented: creating tasks with owner/requester/deadline (Quick Capture still creates simple tasks), the "Reply received" action, event-relative deadlines (data model only), and status changes other than resolve/reopen.
+- Tests: `node --test tests/tasks.test.mjs`.
 
 ## Empty dashboard preview
 
