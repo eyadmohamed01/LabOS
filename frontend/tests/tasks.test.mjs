@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   attentionToTask,
+  byNewest,
   isOverdue,
   matchesView,
   needsFollowUp,
@@ -93,4 +94,12 @@ test("overview follow-ups owned by someone else become 'waiting for' tasks", () 
   const converted = attentionToTask(item, false, ME, TODAY);
   assert.equal(relationOf(converted, ME), "waiting-for-others");
   assert.equal(attentionToTask({ ...item, assigneeId: ME }, true, ME, TODAY).status, "completed");
+});
+
+test("newest first sorts by creation date, ties keep their original order", () => {
+  const older = task({ id: "older", createdDate: "2026-11-02" });
+  const newer = task({ id: "newer", createdDate: "2026-11-12" });
+  const tieA = task({ id: "tie-a", createdDate: "2026-11-12" });
+  const sorted = [older, newer, tieA].sort(byNewest).map((t) => t.id);
+  assert.deepEqual(sorted, ["newer", "tie-a", "older"]);
 });

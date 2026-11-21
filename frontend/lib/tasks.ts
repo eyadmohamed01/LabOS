@@ -139,6 +139,11 @@ export function byDeadline(a: Task, b: Task): number {
   return left.localeCompare(right) || a.title.localeCompare(b.title);
 }
 
+/** Newest creation date first. Array.sort is stable, so ties keep their original order. */
+export function byNewest(a: Task, b: Task): number {
+  return b.createdDate.localeCompare(a.createdDate);
+}
+
 /**
  * Bridges the dashboard's existing sample AttentionItems to the Task model.
  * A "follow-up" item owned by someone else means the current user is waiting for them.

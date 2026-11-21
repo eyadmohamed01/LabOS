@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { useAnimatedList } from "../../hooks/useAnimatedList";
 import { attentionDetail, getPerson } from "../../lib/dashboard";
-import { currentUserId, people, workspaceDate } from "../../lib/dashboardData";
+import { currentUserId, workspaceDate } from "../../lib/dashboardData";
 import type { TranslationKey } from "../../lib/i18n";
 import {
   attentionToTask,
   byDeadline,
+  byNewest,
   isActive,
   isOverdue,
   matchesView,
@@ -21,6 +22,7 @@ import { taskDetail } from "../../lib/taskDetail";
 import type {
   AttentionItem,
   ItemDetail,
+  Person,
   Project,
 } from "../../types/dashboard";
 import type { Task, TaskStatus, TaskViewId } from "../../types/tasks";
@@ -80,6 +82,7 @@ export function TasksView({
   seedTasks,
   statusOverrides,
   projects,
+  people,
   onToggle,
   onDetail,
   onAddTask,
@@ -91,6 +94,8 @@ export function TasksView({
   seedTasks: Task[];
   statusOverrides: Readonly<Record<string, TaskStatus>>;
   projects: Project[];
+  /** Workspace members for the Person filter. Pass [] for a fresh workspace. */
+  people: Person[];
   onToggle: (id: string) => void;
   onDetail: (detail: ItemDetail) => void;
   onAddTask: () => void;
@@ -153,7 +158,7 @@ export function TasksView({
     if (sort === "title")
       return [...list].sort((a, b) => a.title.localeCompare(b.title, locale));
     if (sort === "deadline") return [...list].sort(byDeadline);
-    return list;
+    return [...list].sort(byNewest);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoped, view, sort, locale]);
 
@@ -288,6 +293,7 @@ export function TasksView({
               <span>{t("Person")}</span>
               <select
                 value={person}
+                disabled={people.length === 0}
                 onChange={(event) => setPerson(event.target.value)}
               >
                 <option value="">{t("Anyone")}</option>

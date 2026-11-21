@@ -22,6 +22,8 @@ import type {
   Project,
   TimelineItem,
 } from "../../types/dashboard";
+import { statusLabels, taskDetail } from "../../lib/taskDetail";
+import type { Task } from "../../types/tasks";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
 import { useLocale } from "./LocaleProvider";
@@ -60,6 +62,7 @@ export function SearchDialog({
   onSelect,
   projects,
   timelineItems,
+  extraTasks = [],
 }: {
   items: AttentionItem[];
   completedIds: ReadonlySet<string>;
@@ -67,6 +70,8 @@ export function SearchDialog({
   onSelect: (detail: ItemDetail) => void;
   projects: Project[];
   timelineItems: TimelineItem[];
+  /** Fully specified workspace tasks (current statuses applied). Overview items are not repeated here. */
+  extraTasks?: Task[];
 }) {
   const { t, text, locale, formatDate } = useLocale();
   const [query, setQuery] = useState("");
@@ -90,6 +95,25 @@ export function SearchDialog({
         labels: `${item.label} ${text(item.label)} ${item.priority ?? "normal"} ${text(item.priority ?? "normal")}`,
         detail: attentionDetail(item, locale),
       })),
+      ...extraTasks
+        .filter((task) => !items.some((item) => item.id === task.id))
+        .map((task): IndexedItem => ({
+          id: `task-${task.id}`,
+          type: "task",
+          title: task.title,
+          description: task.description,
+          status:
+            task.status === "completed" || task.status === "cancelled"
+              ? "resolved"
+              : "open",
+          project: getProject(task.projectId)?.name ?? "",
+          people: [task.ownerId, task.requesterId]
+            .map((id) => (id ? getPerson(id)?.name : undefined))
+            .filter(Boolean)
+            .join(" "),
+          labels: `${statusLabels[task.status]} ${text(statusLabels[task.status])} ${task.milestone ? "Milestone" : ""} ${task.priority ?? "normal"} ${text(task.priority ?? "normal")}`,
+          detail: taskDetail(task, locale),
+        })),
       ...projects.map((item): IndexedItem => ({
         id: `project-${item.id}`,
         type: "project",
@@ -113,7 +137,16 @@ export function SearchDialog({
         detail: timelineDetail(item, locale),
       })),
     ],
-    [items, completedIds, projects, timelineItems, locale, text, formatDate],
+    [
+      items,
+      completedIds,
+      extraTasks,
+      projects,
+      timelineItems,
+      locale,
+      text,
+      formatDate,
+    ],
   );
   const filters: SearchFilters = {
     status: status === "all" ? undefined : status,

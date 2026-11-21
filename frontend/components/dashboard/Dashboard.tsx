@@ -36,7 +36,13 @@ import type { DashboardPreview } from "../../lib/dashboardPreview";
 import { createCaptureId } from "../../lib/captureId";
 
 type Overlay = "search" | "notifications" | "navigation" | null;
-type Notice = { message: string; undoId?: string };
+type Notice = {
+  message: string;
+  /** Overview items: Undo toggles the completion again. */
+  undoId?: string;
+  /** Workspace tasks: Undo restores this exact previous status. */
+  restore?: { id: string; status: TaskStatus };
+};
 
 export function Dashboard({
   initialPreview = "populated",
@@ -207,6 +213,14 @@ function DashboardView({
     if (project) openDetail(projectDetail(project, locale));
   }
 
+  // Workspace tasks with their current statuses, shared by the search index.
+  const currentWorkspaceTasks = firstUse
+    ? []
+    : workspaceTasks.map((task) => ({
+        ...task,
+        status: taskStatuses[task.id] ?? task.status,
+      }));
+
   function isDone(id: string) {
     if (items.some((item) => item.id === id)) return completedIds.has(id);
     const base = workspaceTasks.find((task) => task.id === id);
@@ -215,14 +229,17 @@ function DashboardView({
   }
 
   function toggleSeedTask(id: string) {
-    const wasDone = isDone(id);
-    setTaskStatuses((previous) => ({
-      ...previous,
+    const base = workspaceTasks.find((task) => task.id === id);
+    if (!base) return;
+    const previous = taskStatuses[id] ?? base.status;
+    const wasDone = previous === "completed" || previous === "cancelled";
+    setTaskStatuses((statuses) => ({
+      ...statuses,
       [id]: wasDone ? "open" : "completed",
     }));
     setNotice({
       message: wasDone ? "Item reopened." : "Item resolved.",
-      undoId: id,
+      restore: { id, status: previous },
     });
   }
 
@@ -438,6 +455,7 @@ function DashboardView({
               seedTasks={firstUse ? [] : workspaceTasks}
               statusOverrides={taskStatuses}
               projects={activeProjects}
+              people={firstUse ? [] : people}
               onToggle={toggleItem}
               onDetail={openDetail}
               onAddTask={() => captureRef.current?.focus()}
@@ -497,6 +515,7 @@ function DashboardView({
           completedIds={completedIds}
           projects={activeProjects}
           timelineItems={schedule}
+          extraTasks={currentWorkspaceTasks}
           onClose={() => setOverlay(null)}
           onSelect={openDetail}
         />
@@ -579,10 +598,16 @@ function DashboardView({
               <Icon name="check" size={17} />
             </span>
             <span>{text(notice.message)}</span>
-            {notice.undoId && (
+            {(notice.undoId || notice.restore) && (
               <button
                 onClick={() => {
-                  if (notice.undoId) void toggleItem(notice.undoId);
+                  const { restore } = notice;
+                  if (restore)
+                    setTaskStatuses((statuses) => ({
+                      ...statuses,
+                      [restore.id]: restore.status,
+                    }));
+                  else if (notice.undoId) void toggleItem(notice.undoId);
                   setNotice(null);
                 }}
               >
