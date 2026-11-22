@@ -4,7 +4,7 @@ title: Authentication
 
 # Authentication
 
-LabOS accounts are email and password accounts in Supabase Auth. The FastAPI app exposes them at `/api/auth`. The browser does not have login screens yet. Call these routes from a future page, from Swagger, or with `curl`.
+LabOS accounts are email and password accounts in Supabase Auth. The FastAPI app exposes them at `/api/auth`. The browser does not have login screens yet. Call these routes from a future page, from Swagger, or with `curl`. The behavior those screens must show is in [Account access](../user-stories/account-access.md).
 
 Supabase is the account server. LabOS data stays on the FastAPI routes. Do not send LabOS records through the Supabase Data API (`/rest/v1`).
 

@@ -16,6 +16,11 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: "category",
+      label: "User stories",
+      items: ["user-stories/account-access"],
+    },
+    {
+      type: "category",
       label: "Developer Guide",
       items: [
         "developer-guide/project-structure",
