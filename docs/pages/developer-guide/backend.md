@@ -22,6 +22,8 @@ Keep the HTTP function small. Read and validate input with a schema, call a serv
 
 `app/core/database.py` is the place to create a SQLAlchemy engine. Nothing calls it during startup, so the API runs without PostgreSQL.
 
+Sign-in, sessions, and protecting a route are described in [Authentication](./authentication.md). Auth calls Supabase Auth and leaves LabOS data on this API.
+
 ## Tests
 
 ```bash

@@ -17,7 +17,7 @@ The browser talks to the frontend. The frontend calls the backend over HTTP JSON
 
 The backend allows browser origins listed in `BACKEND_CORS_ORIGINS`. A browser on `http://localhost:3000` can call `http://localhost:8000`. Add any new origin to that variable before you rely on it.
 
-The starter's only call is `GET /api/health` from `frontend/components/HealthStatus.tsx`.
+The current UI calls `GET /api/health` from `frontend/components/HealthStatus.tsx`. Login is not on a page yet. When a screen needs an account, call `/api/auth` with `resolveApiBaseUrl()` and send `Authorization: Bearer <access_token>` on later requests. The routes and the token rules are in [Authentication](./authentication.md).
 
 ## Production
 

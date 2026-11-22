@@ -34,6 +34,8 @@ Add a small function in `frontend/lib/` that uses `resolveApiBaseUrl()` from `fr
 
 The health route is the pattern to copy: schema in `schemas/health.py`, route in `api/health.py`, registration in `api/router.py`, test in `tests/test_health.py`.
 
+A route that needs a signed-in user depends on `get_current_user`. The steps and the token rules are in [Authentication](./authentication.md#protect-an-endpoint).
+
 ## A new table
 
 Add a SQLAlchemy model in `backend/app/models/` using `Base` from `models/base.py`. Do not connect at import time. `core/database.py` creates an engine only when a caller asks for one, and only when `DATABASE_URL` is set.

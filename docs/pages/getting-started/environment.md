@@ -20,8 +20,10 @@ Docker Compose reads this file when the development and production stacks start.
 | `BACKEND_CORS_ORIGINS` | Backend | Browser origins allowed to call the API. Comma-separated. |
 | `APP_ENV` | Backend | `development` or `production`. Compose sets this for containers. |
 | `DATABASE_URL` | Backend | Optional PostgreSQL URL. The starter does not connect on startup. |
-| `SUPABASE_URL` | Backend | Optional. Reserved for later Supabase setup. |
-| `SUPABASE_ANON_KEY` | Backend | Optional. Reserved for later Supabase setup. |
+| `SUPABASE_URL` | Backend | Supabase project URL. Auth routes need it. The API still starts when it is empty. |
+| `SUPABASE_PUBLISHABLE_KEY` | Backend | Publishable key used to call Supabase Auth. It is not a secret key, and it is not sent to the browser by this API. |
+
+How those values are used, and how to call register and login, is in [Authentication](../developer-guide/authentication.md).
 
 ## Development and Wi-Fi
 

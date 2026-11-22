@@ -45,6 +45,8 @@ LabOS/
 | `backend/app/services/` | Operations that should not depend on the HTTP layer. |
 | `backend/tests/` | Pytest modules. |
 
+Sign-in is part of the backend. See [Authentication](./authentication.md).
+
 ## Documentation
 
 `docs/pages/` is the contributor guide you are reading. It explains how to run and change the repository. `make docs-build` writes it to `docs/build/index.html`. That output is not copied into the application image.

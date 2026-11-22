@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     backend_cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     database_url: str = ""
     supabase_url: str = ""
-    supabase_anon_key: str = ""
+    supabase_publishable_key: str = ""
 
     @property
     def cors_origins(self) -> list[str]:

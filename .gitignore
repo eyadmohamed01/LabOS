@@ -18,3 +18,5 @@ docs/.docusaurus/
 
 *.log
 .DS_Store
+
+.cursor/

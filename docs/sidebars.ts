@@ -22,6 +22,7 @@ const sidebars: SidebarsConfig = {
         "developer-guide/where-to-add-code",
         "developer-guide/frontend",
         "developer-guide/backend",
+        "developer-guide/authentication",
         "developer-guide/communication",
         "developer-guide/dev-vs-prod",
         "developer-guide/docker",
