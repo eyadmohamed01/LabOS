@@ -2,7 +2,7 @@
 
 Next.js application for LabOS, written in React and TypeScript.
 
-The operational dashboard at `/` brings together Quick Capture, Attention, a grouped Timeline, and Active Projects. This change implements **Overview** and **Tasks**. Other sidebar sections are visibly disabled placeholders for future work. Switching between Overview and Tasks is client-side state in `Dashboard.tsx`; there are no additional routes.
+The operational dashboard at `/` brings together Quick Capture, Attention, a grouped Timeline, and Active Projects. This change implements **Overview**, **Tasks** and **Calendar**. Other sidebar sections are visibly disabled placeholders for future work. Switching sections is client-side state in `Dashboard.tsx`; there are no additional routes.
 
 Run it from the repository root:
 
@@ -39,14 +39,28 @@ Keyboard support includes `N` to focus capture, `/` to open search, `Escape` to 
 
 ## Tasks page
 
-Sidebar → **Tasks** opens the task dashboard, built from the Implementation Brief (§8–§10, §15, §24, §34).
+Sidebar → **Tasks**, built from the Implementation Brief (§8–§10, §15, §24, §34).
 
-- `types/tasks.ts` is the Task model: owner, requester, deadline (date + optional time), status (`open`, `in-progress`, `completed`, `cancelled`), last external contact, follow-up threshold, milestone flag and `blocksId`. There is deliberately **no "waiting" status**; waiting is derived from owner/requester.
-- `lib/tasks.ts` holds all rules as pure functions (no clock, no React): owner/requester relationship, overdue (date-only deadlines become overdue the next day), working-day arithmetic (Mon–Fri, no holidays), the five-condition follow-up trigger with the 5-working-day default, derived blockers, and the saved views.
-- Saved views (tabs with live counts): Active, My overdue, Waiting for others, Others waiting for me, Due this week, Blocked milestones, Completed. "Open Decisions" belongs to the future Decisions section.
-- `lib/taskData.ts` is fictional sample data covering every rule. `components/dashboard/TasksView.tsx` takes `Task[]`-shaped props, so an API adapter can replace the sample data without touching the UI. Overview items are converted with `attentionToTask`; a follow-up owned by someone else counts as "waiting for".
-- Not yet implemented: creating tasks with owner/requester/deadline (Quick Capture still creates simple tasks), the "Reply received" action, event-relative deadlines (data model only), and status changes other than resolve/reopen.
-- Tests: `node --test tests/tasks.test.mjs`.
+- **One way to add a task:** the *Add task* button (or the `N` key) opens `TaskDialog.tsx`: title, description, assigned to, requested by, created by, due date and time, project, priority, plus *More details* (linked event, follow-up threshold, last contact, milestone, blocks milestone). Every task has an **Edit** button on its row and in its detail dialog; editing also offers the status (open / in progress / completed / cancelled).
+- `types/tasks.ts` is the Task model. There is deliberately **no "waiting" status**; waiting is derived from owner/requester.
+- `lib/tasks.ts` holds the rules as pure functions: owner/requester relationship, overdue, Mon–Fri working days, the follow-up trigger (5 working days by default), derived blockers, the saved views, and `composeTasks`, which merges Overview items, workspace tasks and edits into the single list used by the Tasks page, search and calendar.
+- Saved views (tabs with live counts): Active, My overdue, Waiting for others, Others waiting for me, Due this week, Blocked milestones, Completed. Filter dropdowns only offer projects and people that exist in the *current* view and are hidden when there is nothing to choose.
+- Overview items and tasks stay in sync: new tasks also appear in Attention, metrics and search; edits update the Overview item. The Overview's own "2 days overdue" label is static sample text and does not recompute when a due date is edited.
+- `lib/taskData.ts` is fictional sample data. Tests: `node --test tests/*.test.mjs`.
+
+## Calendar
+
+Sidebar → **Calendar** (`CalendarView.tsx`, maths in `lib/calendar.ts`): Month, Week and Day (time grid, overlapping events side by side, all-day row), and a 30-day Agenda. Weeks start on Monday. Task deadlines owned by the current user can be overlaid. Overlapping meetings are flagged. *Add event* / *Edit* / *Delete* use `EventDialog.tsx`; new events also show in the Overview timeline. Events use the existing three kinds (meeting, deadline, milestone) and are single-day. Recurrence, multi-day events and ICS import are not implemented (the brief requires a maintained ICS library for that).
+
+## Supabase (prepared, not connected)
+
+Nothing calls Supabase yet; the app uses in-memory sample data.
+
+- `lib/taskRepository.ts` is the only persistence layer: `list`, `get`, `create`, `update`, `upsertMany`, `remove`, with a Supabase (REST, no extra dependency) and an in-memory implementation. `getTaskRepository()` returns Supabase only when real keys are present.
+- `supabase/schema.sql` is the table definition to run in the Supabase SQL editor (includes a placeholder row-level-security policy that must be tightened).
+- `.env.example` holds the placeholders (`YOUR-…`). Copy it to `.env.local`. The **service-role key is for scripts only**; never prefix it with `NEXT_PUBLIC_` or import it from a component.
+- `scripts/seed-supabase.mjs` populates the table from `lib/taskData.ts`: dry run by default, `--apply` to send (`node --env-file=.env.local scripts/seed-supabase.mjs --apply`).
+- To connect later: load with `getTaskRepository().list()` in `Dashboard.tsx` and call `create` / `update` from `saveTask`.
 
 ## Empty dashboard preview
 

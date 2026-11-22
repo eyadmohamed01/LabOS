@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useAnimatedList } from "../../hooks/useAnimatedList";
-import { attentionDetail, getPerson } from "../../lib/dashboard";
+import { getPerson } from "../../lib/dashboard";
 import { currentUserId, workspaceDate } from "../../lib/dashboardData";
 import type { TranslationKey } from "../../lib/i18n";
 import {
-  attentionToTask,
   byDeadline,
   byNewest,
   isActive,
@@ -18,13 +17,7 @@ import {
   relationOf,
   type TaskContext,
 } from "../../lib/tasks";
-import { taskDetail } from "../../lib/taskDetail";
-import type {
-  AttentionItem,
-  ItemDetail,
-  Person,
-  Project,
-} from "../../types/dashboard";
+import type { Person, Project } from "../../types/dashboard";
 import type { Task, TaskStatus, TaskViewId } from "../../types/tasks";
 import { Icon } from "./Icon";
 import { useLocale } from "./LocaleProvider";
@@ -35,36 +28,12 @@ type SortMode = "deadline" | "newest" | "title";
 const views: { id: TaskViewId; label: TranslationKey; hint: TranslationKey }[] =
   [
     { id: "active", label: "Active", hint: "Open and in-progress tasks." },
-    {
-      id: "overdue",
-      label: "My overdue",
-      hint: "Tasks you own whose deadline has passed.",
-    },
-    {
-      id: "waiting",
-      label: "Waiting for others",
-      hint: "Tasks owned by someone else that you requested.",
-    },
-    {
-      id: "waiting-me",
-      label: "Others waiting for me",
-      hint: "Tasks you own that someone else requested.",
-    },
-    {
-      id: "week",
-      label: "Due this week",
-      hint: "Your tasks due in the next 7 days.",
-    },
-    {
-      id: "blocked",
-      label: "Blocked milestones",
-      hint: "Milestones with an open blocking task.",
-    },
-    {
-      id: "done",
-      label: "Completed",
-      hint: "Completed and cancelled tasks.",
-    },
+    { id: "overdue", label: "My overdue", hint: "Tasks you own whose deadline has passed." },
+    { id: "waiting", label: "Waiting for others", hint: "Tasks owned by someone else that you requested." },
+    { id: "waiting-me", label: "Others waiting for me", hint: "Tasks you own that someone else requested." },
+    { id: "week", label: "Due this week", hint: "Your tasks due in the next 7 days." },
+    { id: "blocked", label: "Blocked milestones", hint: "Milestones with an open blocking task." },
+    { id: "done", label: "Completed", hint: "Completed and cancelled tasks." },
   ];
 
 const statusKeys: Record<TaskStatus, TranslationKey> = {
@@ -77,27 +46,22 @@ const statusKeys: Record<TaskStatus, TranslationKey> = {
 const firstName = (id: string) => getPerson(id)?.name.split(" ")[0] ?? "";
 
 export function TasksView({
-  items,
-  completedIds,
-  seedTasks,
-  statusOverrides,
+  tasks,
   projects,
   people,
   onToggle,
-  onDetail,
+  onOpen,
+  onEdit,
   onAddTask,
 }: {
-  /** Overview sample/captured items. Calendar warnings are not tasks and are skipped. */
-  items: AttentionItem[];
-  completedIds: ReadonlySet<string>;
-  /** Fully specified tasks (owner, requester, status…). Pass [] for a fresh workspace. */
-  seedTasks: Task[];
-  statusOverrides: Readonly<Record<string, TaskStatus>>;
+  /** The composed task list (see composeTasks). */
+  tasks: Task[];
   projects: Project[];
-  /** Workspace members for the Person filter. Pass [] for a fresh workspace. */
+  /** Workspace members. Pass [] for a fresh workspace. */
   people: Person[];
   onToggle: (id: string) => void;
-  onDetail: (detail: ItemDetail) => void;
+  onOpen: (task: Task) => void;
+  onEdit: (task: Task) => void;
   onAddTask: () => void;
 }) {
   const { t, locale, formatDate } = useLocale();
@@ -110,41 +74,54 @@ export function TasksView({
   const [person, setPerson] = useState("");
   const [sort, setSort] = useState<SortMode>("deadline");
 
-  const itemById = useMemo(
-    () => new Map(items.map((item) => [item.id, item])),
-    [items],
-  );
-  const tasks = useMemo<Task[]>(
-    () => [
-      ...items
-        .filter((item) => item.kind !== "calendar")
-        .map((item) =>
-          attentionToTask(item, completedIds.has(item.id), me, today),
-        ),
-      ...seedTasks.map((task) => ({
-        ...task,
-        status: statusOverrides[task.id] ?? task.status,
-      })),
-    ],
-    [items, completedIds, seedTasks, statusOverrides, me, today],
-  );
   const context: TaskContext = { me, today, tasks };
+  const activeView = views.find(({ id }) => id === view) ?? views[0];
+
+  // Filter choices come only from the tasks in the CURRENT view, so nothing offered can lead to an empty list.
+  const viewTasks = useMemo(
+    () => tasks.filter((task) => matchesView(view, task, { me, today, tasks })),
+    [tasks, view, me, today],
+  );
+  const projectChoices = projects.filter((item) =>
+    viewTasks.some((task) => task.projectId === item.id),
+  );
+  const hasNoProject = viewTasks.some((task) => !task.projectId);
+  const personChoices = people.filter((item) =>
+    viewTasks.some(
+      (task) => task.ownerId === item.id || task.requesterId === item.id,
+    ),
+  );
+  const showProject = projectChoices.length + (hasNoProject ? 1 : 0) > 1;
+  const showPerson = personChoices.length > 1;
+  const showToolbar = viewTasks.length > 0;
+
+  // A remembered selection that does not exist in this view is ignored (and shown as "all").
+  const projectValue =
+    showToolbar &&
+    showProject &&
+    (project === "none" ? hasNoProject : projectChoices.some((p) => p.id === project))
+      ? project
+      : "";
+  const personValue =
+    showToolbar && showPerson && personChoices.some((p) => p.id === person)
+      ? person
+      : "";
+  const queryValue = showToolbar ? query : "";
 
   const scoped = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = queryValue.trim().toLowerCase();
     return tasks.filter((task) => {
-      if (project === "none" && task.projectId) return false;
-      if (project && project !== "none" && task.projectId !== project)
+      if (projectValue === "none" && task.projectId) return false;
+      if (projectValue && projectValue !== "none" && task.projectId !== projectValue)
         return false;
-      if (person && task.ownerId !== person && task.requesterId !== person)
+      if (personValue && task.ownerId !== personValue && task.requesterId !== personValue)
         return false;
       return (
         !needle ||
         `${task.title} ${task.description}`.toLowerCase().includes(needle)
       );
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, query, project, person]);
+  }, [tasks, queryValue, projectValue, personValue]);
 
   const counts = Object.fromEntries(
     views.map(({ id }) => [
@@ -154,32 +131,29 @@ export function TasksView({
   ) as Record<TaskViewId, number>;
 
   const visible = useMemo(() => {
-    const list = scoped.filter((task) => matchesView(view, task, context));
+    const list = scoped.filter((task) =>
+      matchesView(view, task, { me, today, tasks }),
+    );
     if (sort === "title")
       return [...list].sort((a, b) => a.title.localeCompare(b.title, locale));
     if (sort === "deadline") return [...list].sort(byDeadline);
     return [...list].sort(byNewest);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scoped, view, sort, locale]);
+  }, [scoped, view, sort, locale, me, today, tasks]);
 
   const listRef = useAnimatedList<HTMLUListElement>(
     visible.map((task) => `${task.id}:${task.status}`).join("|"),
   );
 
-  const hasFilters = !!(query || project || person);
+  const hasFilters = !!(queryValue || projectValue || personValue);
   const resetFilters = () => {
     setQuery("");
     setProject("");
     setPerson("");
   };
-  const activeView = views.find(({ id }) => id === view) ?? views[0];
 
   function rowStatus(task: Task): { label: string; className: string } {
     if (!isActive(task))
-      return {
-        label: t(statusKeys[task.status]),
-        className: "status-capture",
-      };
+      return { label: t(statusKeys[task.status]), className: "status-capture" };
     if (isOverdue(task, today))
       return { label: t("Overdue"), className: "status-overdue" };
     if (needsFollowUp(task, me, today))
@@ -194,15 +168,8 @@ export function TasksView({
     if (relation === "waiting-for-others")
       return t("Waiting for {name}", { name: firstName(task.ownerId) });
     if (relation === "others-waiting" && task.requesterId)
-      return t("{name} is waiting for you", {
-        name: firstName(task.requesterId),
-      });
+      return t("{name} is waiting for you", { name: firstName(task.requesterId) });
     return null;
-  }
-
-  function openTask(task: Task) {
-    const item = itemById.get(task.id);
-    onDetail(item ? attentionDetail(item, locale) : taskDetail(task, locale));
   }
 
   return (
@@ -217,14 +184,6 @@ export function TasksView({
             </h2>
             <p>{t("Tasks you own and tasks you are waiting on.")}</p>
           </div>
-          <button
-            type="button"
-            className="button button-primary"
-            onClick={onAddTask}
-          >
-            <Icon name="plus" size={16} />
-            {t("New task")}
-          </button>
         </div>
 
         <div className="panel attention-panel tasks-panel">
@@ -248,95 +207,97 @@ export function TasksView({
           </div>
           <p className="tasks-view-hint">{t(activeView.hint)}</p>
 
-          <div className="tasks-toolbar">
-            <div className="search-input tasks-search">
-              <Icon name="search" size={16} />
-              <label className="sr-only" htmlFor="tasks-filter">
-                {t("Filter tasks")}
-              </label>
-              <input
-                id="tasks-filter"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("Filter tasks by title or description…")}
-                autoComplete="off"
-                spellCheck={false}
-                maxLength={200}
-              />
-              {query && (
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={t("Clear search")}
-                  onClick={() => setQuery("")}
-                >
-                  <Icon name="close" size={14} />
+          {showToolbar && (
+            <div className="tasks-toolbar">
+              <div className="search-input tasks-search">
+                <Icon name="search" size={16} />
+                <label className="sr-only" htmlFor="tasks-filter">
+                  {t("Filter tasks")}
+                </label>
+                <input
+                  id="tasks-filter"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t("Filter tasks by title or description…")}
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={200}
+                />
+                {query && (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t("Clear search")}
+                    onClick={() => setQuery("")}
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                )}
+              </div>
+              {showProject && (
+                <label>
+                  <span>{t("Project")}</span>
+                  <select
+                    value={projectValue}
+                    onChange={(event) => setProject(event.target.value)}
+                  >
+                    <option value="">{t("All projects")}</option>
+                    {hasNoProject && <option value="none">{t("Lab workspace")}</option>}
+                    {projectChoices.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {showPerson && (
+                <label>
+                  <span>{t("Person")}</span>
+                  <select
+                    value={personValue}
+                    onChange={(event) => setPerson(event.target.value)}
+                  >
+                    <option value="">{t("Anyone")}</option>
+                    {personChoices.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {viewTasks.length > 1 && (
+                <label>
+                  <span>{t("Sort by")}</span>
+                  <select
+                    value={sort}
+                    onChange={(event) => setSort(event.target.value as SortMode)}
+                  >
+                    <option value="deadline">{t("Deadline")}</option>
+                    <option value="newest">{t("Newest first")}</option>
+                    <option value="title">{t("Title A–Z")}</option>
+                  </select>
+                </label>
+              )}
+              {hasFilters && (
+                <button type="button" className="text-button" onClick={resetFilters}>
+                  {t("Reset filters")}
                 </button>
               )}
             </div>
-            <label>
-              <span>{t("Project")}</span>
-              <select
-                value={project}
-                onChange={(event) => setProject(event.target.value)}
-              >
-                <option value="">{t("All projects")}</option>
-                <option value="none">{t("Lab workspace")}</option>
-                {projects.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>{t("Person")}</span>
-              <select
-                value={person}
-                disabled={people.length === 0}
-                onChange={(event) => setPerson(event.target.value)}
-              >
-                <option value="">{t("Anyone")}</option>
-                {people.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>{t("Sort by")}</span>
-              <select
-                value={sort}
-                onChange={(event) => setSort(event.target.value as SortMode)}
-              >
-                <option value="deadline">{t("Deadline")}</option>
-                <option value="newest">{t("Newest first")}</option>
-                <option value="title">{t("Title A–Z")}</option>
-              </select>
-            </label>
-            {hasFilters && (
-              <button
-                type="button"
-                className="text-button"
-                onClick={resetFilters}
-              >
-                {t("Reset filters")}
-              </button>
-            )}
-          </div>
+          )}
 
           <ul className="attention-list" ref={listRef}>
             {visible.map((task) => {
               const done = !isActive(task);
               const status = rowStatus(task);
               const relation = relationText(task);
-              const blockers = task.milestone
-                ? openBlockers(task, tasks).length
-                : 0;
-              const quiet =
-                needsFollowUp(task, me, today) &&
-                quietWorkingDays(task, today);
+              const creator = task.createdById ? getPerson(task.createdById) : undefined;
+              const blockers = task.milestone ? openBlockers(task, tasks).length : 0;
+              const quiet = needsFollowUp(task, me, today)
+                ? quietWorkingDays(task, today)
+                : null;
               return (
                 <li
                   key={task.id}
@@ -355,21 +316,16 @@ export function TasksView({
                     </span>
                   </label>
                   <div className="attention-content">
-                    <span className={`item-status ${status.className}`}>
-                      {status.label}
-                    </span>
-                    <button
-                      type="button"
-                      className="item-title"
-                      onClick={() => openTask(task)}
-                    >
+                    <span className={`item-status ${status.className}`}>{status.label}</span>
+                    <button type="button" className="item-title" onClick={() => onOpen(task)}>
                       {task.title}
                       {task.milestone && (
-                        <span className="event-tag tag-milestone">
-                          {t("Milestone")}
-                        </span>
+                        <span className="event-tag tag-milestone">{t("Milestone")}</span>
                       )}
                     </button>
+                    {task.description && (
+                      <p className="task-description">{task.description}</p>
+                    )}
                     <div className="item-meta">
                       <span className="task-meta-group">
                         <ProjectLabel projectId={task.projectId} />
@@ -379,33 +335,48 @@ export function TasksView({
                             ? `${formatDate(task.dueDate)}${task.dueTime ? ` · ${task.dueTime}` : ""}`
                             : t("No deadline")}
                         </span>
+                        <span className="task-meta-text task-priority">
+                          <span className={`priority-dot priority-${task.priority ?? "normal"}`} />
+                          {t(task.priority ?? "normal")}
+                        </span>
                         {relation && (
                           <span className="task-meta-text task-relation">
                             <Icon name="people" size={12} />
                             {relation}
                           </span>
                         )}
-                        {typeof quiet === "number" && (
+                        {creator && (
+                          <span className="task-meta-text">
+                            {t("Created by {name}", { name: creator.name })}
+                          </span>
+                        )}
+                        {quiet !== null && (
                           <span className="task-meta-text">
                             <Icon name="clock" size={12} />
-                            {t("No reply for {count} working days", {
-                              count: quiet,
-                            })}
+                            {t("No reply for {count} working days", { count: quiet })}
                           </span>
                         )}
                         {blockers > 0 && (
                           <span className="task-meta-text">
                             <Icon name="warning" size={12} />
                             {t(
-                              blockers === 1
-                                ? "{count} open blocker"
-                                : "{count} open blockers",
+                              blockers === 1 ? "{count} open blocker" : "{count} open blockers",
                               { count: blockers },
                             )}
                           </span>
                         )}
                       </span>
-                      <Avatar personId={task.ownerId} small />
+                      <span className="task-row-actions">
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => onEdit(task)}
+                          aria-label={`${t("Edit")}: ${task.title}`}
+                        >
+                          {t("Edit")}
+                        </button>
+                        <Avatar personId={task.ownerId} small />
+                      </span>
                     </div>
                   </div>
                 </li>
@@ -430,27 +401,19 @@ export function TasksView({
               <p>
                 {t(
                   tasks.length === 0
-                    ? "Capture your first task and it will show up here."
+                    ? "Add your first task and it will show up here."
                     : hasFilters
                       ? "Try fewer words or adjust the filters."
                       : "Nothing in this view.",
                 )}
               </p>
               {tasks.length === 0 ? (
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={onAddTask}
-                >
-                  {t("Add a task")}
+                <button type="button" className="text-button" onClick={onAddTask}>
+                  {t("Add task")}
                   <Icon name="arrow" size={14} />
                 </button>
               ) : hasFilters ? (
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={resetFilters}
-                >
+                <button type="button" className="text-button" onClick={resetFilters}>
                   {t("Reset filters")}
                 </button>
               ) : null}

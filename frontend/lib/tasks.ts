@@ -139,6 +139,50 @@ export function byDeadline(a: Task, b: Task): number {
   return left.localeCompare(right) || a.title.localeCompare(b.title);
 }
 
+/**
+ * Builds the single task list used by the Tasks page, search and calendar.
+ * - Overview items become tasks; their done-ness lives in `completed` (Overview truth),
+ *   the finer statuses (in-progress / cancelled) live in `edits`.
+ * - Fully specified `seeds` (workspace tasks) get `edits` applied on top.
+ * Calendar warnings are not tasks and are skipped.
+ */
+export function composeTasks({
+  items,
+  completed,
+  seeds,
+  edits,
+  me,
+  today,
+}: {
+  items: readonly AttentionItem[];
+  completed: ReadonlySet<string>;
+  seeds: readonly Task[];
+  edits: Readonly<Record<string, Partial<Task>>>;
+  me: string;
+  today: string;
+}): Task[] {
+  const fromItems = items
+    .filter((item) => item.kind !== "calendar")
+    .map((item): Task => {
+      const done = completed.has(item.id);
+      const edit = edits[item.id];
+      const wanted = edit?.status;
+      return {
+        ...attentionToTask(item, done, me, today),
+        ...edit,
+        status: done
+          ? wanted === "cancelled"
+            ? "cancelled"
+            : "completed"
+          : wanted === "in-progress"
+            ? "in-progress"
+            : "open",
+      };
+    });
+  const fromSeeds = seeds.map((seed): Task => ({ ...seed, ...edits[seed.id] }));
+  return [...fromItems, ...fromSeeds];
+}
+
 /** Newest creation date first. Array.sort is stable, so ties keep their original order. */
 export function byNewest(a: Task, b: Task): number {
   return b.createdDate.localeCompare(a.createdDate);
@@ -160,6 +204,7 @@ export function attentionToTask(
     title: item.title,
     description: item.description,
     ownerId: item.assigneeId,
+    createdById: me,
     requesterId:
       item.kind === "follow-up" && item.assigneeId && item.assigneeId !== me
         ? me

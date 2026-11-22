@@ -85,7 +85,8 @@ export function Sidebar({
       <p className="sidebar-label">{t("WORKSPACE")}</p>
       <nav aria-label={t("Main navigation")}>
         {navigation.map(({ id, label }) => {
-          const available = id === "overview" || id === "tasks";
+          const available =
+            id === "overview" || id === "tasks" || id === "calendar";
           const active = id === section;
           return (
             <button

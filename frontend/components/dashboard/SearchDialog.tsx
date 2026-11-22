@@ -82,8 +82,13 @@ export function SearchDialog({
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const listId = useId();
+  const taskById = useMemo(
+    () => new Map(extraTasks.map((task) => [task.id, task])),
+    [extraTasks],
+  );
   const indexed = useMemo<IndexedItem[]>(
     () => [
+
       ...items.map((item): IndexedItem => ({
         id: `task-${item.id}`,
         type: "task",
@@ -93,7 +98,10 @@ export function SearchDialog({
         project: getProject(item.projectId)?.name ?? "",
         people: getPerson(item.assigneeId)?.name ?? "",
         labels: `${item.label} ${text(item.label)} ${item.priority ?? "normal"} ${text(item.priority ?? "normal")}`,
-        detail: attentionDetail(item, locale),
+        // Prefer the full task detail (requester, creator, deadline…) when we have the task.
+        detail: taskById.has(item.id)
+          ? taskDetail(taskById.get(item.id)!, locale, extraTasks, timelineItems)
+          : attentionDetail(item, locale),
       })),
       ...extraTasks
         .filter((task) => !items.some((item) => item.id === task.id))
@@ -112,7 +120,7 @@ export function SearchDialog({
             .filter(Boolean)
             .join(" "),
           labels: `${statusLabels[task.status]} ${text(statusLabels[task.status])} ${task.milestone ? "Milestone" : ""} ${task.priority ?? "normal"} ${text(task.priority ?? "normal")}`,
-          detail: taskDetail(task, locale),
+          detail: taskDetail(task, locale, extraTasks, timelineItems),
         })),
       ...projects.map((item): IndexedItem => ({
         id: `project-${item.id}`,
@@ -141,6 +149,7 @@ export function SearchDialog({
       items,
       completedIds,
       extraTasks,
+      taskById,
       projects,
       timelineItems,
       locale,

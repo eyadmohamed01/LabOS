@@ -17,6 +17,8 @@ export interface Task {
   description: string;
   /** Person who must act. */
   ownerId: string;
+  /** Person who created the task. */
+  createdById?: string;
   /** Person waiting for the result. Empty or equal to owner = personal task. */
   requesterId?: string;
   /** Deadline date (YYYY-MM-DD, Europe/Berlin) and optional time (HH:mm). */

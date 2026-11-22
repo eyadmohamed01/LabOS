@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   attentionToTask,
   byNewest,
+  composeTasks,
   isOverdue,
   matchesView,
   needsFollowUp,
@@ -102,4 +103,24 @@ test("newest first sorts by creation date, ties keep their original order", () =
   const tieA = task({ id: "tie-a", createdDate: "2026-11-12" });
   const sorted = [older, newer, tieA].sort(byNewest).map((t) => t.id);
   assert.deepEqual(sorted, ["newer", "tie-a", "older"]);
+});
+
+test("composeTasks merges overview items, workspace tasks and edits", () => {
+  const items = [
+    { id: "a", title: "A", kind: "overdue", label: "", description: "", assigneeId: ME, priority: "normal", dueDate: "2026-11-10" },
+    { id: "cal", title: "C", kind: "calendar", label: "", description: "", assigneeId: ME, priority: "high" },
+  ];
+  const seeds = [task({ id: "s", title: "Seed" })];
+  const make = (completed, edits) => composeTasks({ items, completed: new Set(completed), seeds, edits, me: ME, today: TODAY });
+  assert.deepEqual(make([], {}).map((t) => t.id), ["a", "s"]); // calendar warning skipped
+  assert.equal(make([], { a: { status: "in-progress" } })[0].status, "in-progress");
+  assert.equal(make(["a"], { a: { status: "in-progress" } })[0].status, "completed"); // Overview done-ness wins
+  assert.equal(make(["a"], { a: { status: "cancelled" } })[0].status, "cancelled");
+  assert.equal(make([], { s: { title: "Edited" } })[1].title, "Edited");
+  // clearing the requester in an edit really clears it
+  const waiting = composeTasks({
+    items: [{ ...items[0], kind: "follow-up", assigneeId: "alex" }],
+    completed: new Set(), seeds: [], edits: { a: { requesterId: undefined } }, me: ME, today: TODAY,
+  });
+  assert.equal(relationOf(waiting[0], ME), "personal");
 });

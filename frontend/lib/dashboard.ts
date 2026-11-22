@@ -69,6 +69,7 @@ export function timelineDetail(
     eyebrow: item.kind,
     description: item.description,
     projectId: item.projectId,
+    eventId: item.id,
     facts: [
       {
         label: "When",

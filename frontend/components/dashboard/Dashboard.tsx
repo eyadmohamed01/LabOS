@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   attentionDetail,
   getProject,
   projectDetail,
+  timelineDetail,
 } from "../../lib/dashboard";
 import {
   attentionItems,
@@ -15,7 +16,12 @@ import {
   workspaceDate,
   people,
 } from "../../lib/dashboardData";
-import type { AttentionItem, ItemDetail, Section } from "../../types/dashboard";
+import type {
+  AttentionItem,
+  ItemDetail,
+  Section,
+  TimelineItem,
+} from "../../types/dashboard";
 import { ActiveProjects } from "./ActiveProjects";
 import { AttentionPanel } from "./AttentionPanel";
 import { Dialog } from "./Dialog";
@@ -27,8 +33,13 @@ import { SearchDialog } from "./SearchDialog";
 import { Sidebar } from "./Sidebar";
 import { TimelinePanel } from "./TimelinePanel";
 import { TasksView } from "./TasksView";
+import { CalendarView } from "./CalendarView";
+import { TaskDialog } from "./TaskDialog";
+import { EventDialog } from "./EventDialog";
 import { workspaceTasks } from "../../lib/taskData";
-import type { TaskStatus } from "../../types/tasks";
+import { taskDetail } from "../../lib/taskDetail";
+import { composeTasks } from "../../lib/tasks";
+import type { Task, TaskStatus } from "../../types/tasks";
 import { WorkInsights, WorkMetrics } from "./WorkMetrics";
 import { ThemeToggle } from "./ThemeToggle";
 import { EmptyDashboard } from "./EmptyDashboard";
@@ -36,6 +47,10 @@ import type { DashboardPreview } from "../../lib/dashboardPreview";
 import { createCaptureId } from "../../lib/captureId";
 
 type Overlay = "search" | "notifications" | "navigation" | null;
+type FormState =
+  | { kind: "task"; task?: Task }
+  | { kind: "event"; event?: TimelineItem; date: string }
+  | null;
 type Notice = {
   message: string;
   /** Overview items: Undo toggles the completion again. */
@@ -69,9 +84,13 @@ function DashboardView({
   const [workspaceCompleted, setWorkspaceCompleted] = useState<
     Record<DashboardPreview, ReadonlySet<string>>
   >({ populated: new Set(), empty: new Set() });
+  const [workspaceEvents, setWorkspaceEvents] = useState<
+    Record<DashboardPreview, TimelineItem[]>
+  >({ populated: timelineItems, empty: [] });
   const firstUse = preview === "empty";
   const activeProjects = firstUse ? [] : projects;
-  const schedule = firstUse ? [] : timelineItems;
+  const events = workspaceEvents[preview];
+  const schedule = events;
   const items = workspaceItems[preview];
   const completedIds = workspaceCompleted[preview];
   function setItems(update: (previous: AttentionItem[]) => AttentionItem[]) {
@@ -89,14 +108,12 @@ function DashboardView({
     }));
   }
   const [section, setSection] = useState<Section>("overview");
-  // Status changes for the fully specified sample tasks (see lib/taskData.ts).
-  const [taskStatuses, setTaskStatuses] = useState<Record<string, TaskStatus>>(
-    {},
-  );
+  // Edits (and finer statuses) layered over Overview items and the sample workspace tasks.
+  const [taskEdits, setTaskEdits] = useState<Record<string, Partial<Task>>>({});
+  const [form, setForm] = useState<FormState>(null);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [detail, setDetail] = useState<ItemDetail | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const captureRef = useRef<HTMLInputElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -116,7 +133,12 @@ function DashboardView({
     window.history.replaceState(null, "", url);
   }
 
-  const pageTitle = section === "tasks" ? text("Tasks") : t("Overview");
+  const pageTitle =
+    section === "tasks"
+      ? t("Tasks")
+      : section === "calendar"
+        ? t("Calendar")
+        : t("Overview");
 
   useEffect(() => {
     document.title = `${pageTitle} · LabOS`;
@@ -124,7 +146,7 @@ function DashboardView({
 
   function navigate(next: Section) {
     setOverlay(null);
-    if (next !== "overview" && next !== "tasks") return;
+    if (next !== "overview" && next !== "tasks" && next !== "calendar") return;
     const same = next === section;
     setSection(next);
     requestAnimationFrame(() => headingRef.current?.focus());
@@ -183,7 +205,14 @@ function DashboardView({
         (target.matches("input, textarea, select") || target.isContentEditable)
       )
         return;
-      if (event.ctrlKey || event.metaKey || event.altKey || overlay || detail)
+      if (
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        overlay ||
+        detail ||
+        form
+      )
         return;
       if (event.key === "/") {
         event.preventDefault();
@@ -191,12 +220,12 @@ function DashboardView({
       }
       if (event.key.toLowerCase() === "n") {
         event.preventDefault();
-        captureRef.current?.focus();
+        setForm({ kind: "task" });
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [overlay, detail, closeNavigation]);
+  }, [overlay, detail, form, closeNavigation]);
 
   useEffect(() => {
     if (!notice) return;
@@ -213,34 +242,115 @@ function DashboardView({
     if (project) openDetail(projectDetail(project, locale));
   }
 
-  // Workspace tasks with their current statuses, shared by the search index.
-  const currentWorkspaceTasks = firstUse
-    ? []
-    : workspaceTasks.map((task) => ({
-        ...task,
-        status: taskStatuses[task.id] ?? task.status,
-      }));
+  // One list for the Tasks page, search and calendar: Overview items + workspace tasks + edits.
+  const tasks = useMemo(
+    () =>
+      composeTasks({
+        items,
+        completed: completedIds,
+        seeds: firstUse ? [] : workspaceTasks,
+        edits: taskEdits,
+        me: currentUserId,
+        today: workspaceDate,
+      }),
+    [items, completedIds, firstUse, taskEdits],
+  );
+  const workspacePeople = firstUse ? [] : people;
 
   function isDone(id: string) {
     if (items.some((item) => item.id === id)) return completedIds.has(id);
-    const base = workspaceTasks.find((task) => task.id === id);
-    const status = taskStatuses[id] ?? base?.status;
+    const status = tasks.find((task) => task.id === id)?.status;
     return status === "completed" || status === "cancelled";
   }
 
-  function toggleSeedTask(id: string) {
-    const base = workspaceTasks.find((task) => task.id === id);
-    if (!base) return;
-    const previous = taskStatuses[id] ?? base.status;
-    const wasDone = previous === "completed" || previous === "cancelled";
-    setTaskStatuses((statuses) => ({
-      ...statuses,
-      [id]: wasDone ? "open" : "completed",
+  function setStatus(id: string, status: TaskStatus) {
+    setTaskEdits((previous) => ({
+      ...previous,
+      [id]: { ...previous[id], status },
     }));
+  }
+
+  // Tasks that are not Overview items: toggle between done and open; Undo restores the exact previous status.
+  function toggleSeedTask(id: string) {
+    const task = tasks.find((item) => item.id === id);
+    if (!task) return;
+    const wasDone = task.status === "completed" || task.status === "cancelled";
+    setStatus(id, wasDone ? "open" : "completed");
     setNotice({
       message: wasDone ? "Item reopened." : "Item resolved.",
-      restore: { id, status: previous },
+      restore: { id, status: task.status },
     });
+  }
+
+  function saveTask(task: Task) {
+    const isNew = !task.id;
+    const saved: Task = { ...task, id: isNew ? createCaptureId() : task.id };
+    const done = saved.status === "completed" || saved.status === "cancelled";
+    const fields = {
+      title: saved.title,
+      description: saved.description || "Captured for review.",
+      assigneeId: saved.ownerId,
+      projectId: saved.projectId,
+      priority: saved.priority ?? ("normal" as const),
+      dueDate: saved.dueDate,
+    };
+    if (isNew) {
+      // New tasks also appear on the Overview (Attention, metrics, search).
+      setItems((previous) => [
+        {
+          id: saved.id,
+          kind: "capture",
+          label: "Just captured",
+          ...fields,
+        },
+        ...previous,
+      ]);
+    } else if (items.some((item) => item.id === saved.id)) {
+      setItems((previous) =>
+        previous.map((item) =>
+          item.id === saved.id ? { ...item, ...fields } : item,
+        ),
+      );
+    }
+    if (isNew || items.some((item) => item.id === saved.id))
+      setCompletedIds((previous) => {
+        const next = new Set(previous);
+        if (done) next.add(saved.id);
+        else next.delete(saved.id);
+        return next;
+      });
+    setTaskEdits((previous) => ({ ...previous, [saved.id]: saved }));
+    setForm(null);
+    setNotice({ message: isNew ? "Task added." : "Task updated." });
+  }
+
+  function saveEvent(event: TimelineItem) {
+    const isNew = !event.id;
+    const saved = { ...event, id: isNew ? `event-${createCaptureId()}` : event.id };
+    setWorkspaceEvents((previous) => ({
+      ...previous,
+      [preview]: [
+        ...previous[preview].filter((item) => item.id !== saved.id),
+        saved,
+      ].sort((a, b) =>
+        `${a.date}${a.time ?? ""}`.localeCompare(`${b.date}${b.time ?? ""}`),
+      ),
+    }));
+    setForm(null);
+    setNotice({ message: isNew ? "Event added." : "Event updated." });
+  }
+
+  function deleteEvent(id: string) {
+    setWorkspaceEvents((previous) => ({
+      ...previous,
+      [preview]: previous[preview].filter((item) => item.id !== id),
+    }));
+    setForm(null);
+    setNotice({ message: "Event deleted." });
+  }
+
+  function openTask(task: Task) {
+    openDetail(taskDetail(task, locale, tasks, events));
   }
 
   async function toggleItem(id: string) {
@@ -301,21 +411,6 @@ function DashboardView({
         list?.querySelector<HTMLButtonElement>(".filter-row button");
       (next ?? headingRef.current)?.focus();
     });
-  }
-
-  function capture(title: string, projectId?: string) {
-    const item: AttentionItem = {
-      id: createCaptureId(),
-      title,
-      kind: "capture",
-      label: "Just captured",
-      description: "Captured for review.",
-      projectId,
-      assigneeId: firstUse ? "" : currentUserId,
-      priority: "normal",
-    };
-    setItems((previous) => [item, ...previous]);
-    setNotice({ message: "Captured for this session." });
   }
 
   return (
@@ -442,30 +537,34 @@ function DashboardView({
               </p>
             </div>
           )}
-          <QuickCapture
-            key={preview}
-            projects={activeProjects}
-            inputRef={captureRef}
-            onCapture={capture}
-          />
+          <QuickCapture onAdd={() => setForm({ kind: "task" })} />
           {section === "tasks" ? (
             <TasksView
-              items={items}
-              completedIds={completedIds}
-              seedTasks={firstUse ? [] : workspaceTasks}
-              statusOverrides={taskStatuses}
+              tasks={tasks}
               projects={activeProjects}
-              people={firstUse ? [] : people}
+              people={workspacePeople}
               onToggle={toggleItem}
-              onDetail={openDetail}
-              onAddTask={() => captureRef.current?.focus()}
+              onOpen={openTask}
+              onEdit={(task) => setForm({ kind: "task", task })}
+              onAddTask={() => setForm({ kind: "task" })}
+            />
+          ) : section === "calendar" ? (
+            <CalendarView
+              events={events}
+              tasks={tasks}
+              me={currentUserId}
+              today={workspaceDate}
+              onOpenEvent={(event) => openDetail(timelineDetail(event, locale))}
+              onOpenTask={openTask}
+              onAddEvent={(date) => setForm({ kind: "event", date })}
             />
           ) : firstUse ? (
             <EmptyDashboard
               items={items}
               completedIds={completedIds}
               referenceDate={workspaceDate}
-              onAddTask={() => captureRef.current?.focus()}
+              events={events}
+              onAddTask={() => setForm({ kind: "task" })}
               onToggle={toggleItem}
               onDetail={openDetail}
             />
@@ -474,7 +573,7 @@ function DashboardView({
               <WorkMetrics
                 items={items}
                 completedIds={completedIds}
-                schedule={timelineItems}
+                schedule={events}
                 referenceDate={workspaceDate}
               />
               <div className="dashboard-zones">
@@ -487,7 +586,7 @@ function DashboardView({
                   />
                   <WorkInsights items={items} completedIds={completedIds} />
                 </div>
-                <TimelinePanel items={timelineItems} onDetail={openDetail} />
+                <TimelinePanel items={events} onDetail={openDetail} />
               </div>
               <ActiveProjects
                 projects={projects}
@@ -515,7 +614,7 @@ function DashboardView({
           completedIds={completedIds}
           projects={activeProjects}
           timelineItems={schedule}
-          extraTasks={currentWorkspaceTasks}
+          extraTasks={tasks}
           onClose={() => setOverlay(null)}
           onSelect={openDetail}
         />
@@ -568,11 +667,41 @@ function DashboardView({
               </div>
             ))}
           </dl>
+          {detail.eventId && (
+            <div className="dialog-actions">
+              <span />
+              <button
+                className="button"
+                onClick={() => {
+                  const event = events.find((item) => item.id === detail.eventId);
+                  setDetail(null);
+                  if (event)
+                    setForm({ kind: "event", event, date: event.date });
+                }}
+              >
+                {t("Edit")}
+              </button>
+            </div>
+          )}
           {detail.attentionId && (
             <div className="dialog-actions">
               <span>
                 {t(isDone(detail.attentionId) ? "Resolved" : "Open")}
               </span>
+              {tasks.some((task) => task.id === detail.attentionId) && (
+                <button
+                  className="button"
+                  onClick={() => {
+                    const task = tasks.find(
+                      (item) => item.id === detail.attentionId,
+                    );
+                    setDetail(null);
+                    if (task) setForm({ kind: "task", task });
+                  }}
+                >
+                  {t("Edit")}
+                </button>
+              )}
               <button
                 className="button button-primary"
                 onClick={() => {
@@ -591,6 +720,32 @@ function DashboardView({
           )}
         </Dialog>
       )}
+      {form?.kind === "task" && (
+        <TaskDialog
+          task={form.task}
+          people={workspacePeople}
+          projects={activeProjects}
+          events={events}
+          milestones={tasks.filter(
+            (task) => task.milestone && task.id !== form.task?.id,
+          )}
+          me={firstUse ? "" : currentUserId}
+          today={workspaceDate}
+          onSave={saveTask}
+          onClose={() => setForm(null)}
+        />
+      )}
+      {form?.kind === "event" && (
+        <EventDialog
+          event={form.event}
+          defaultDate={form.date}
+          people={workspacePeople}
+          projects={activeProjects}
+          onSave={saveEvent}
+          onDelete={deleteEvent}
+          onClose={() => setForm(null)}
+        />
+      )}
       <div className="toast-region" aria-live="polite" aria-atomic="true">
         {notice && (
           <div className="toast">
@@ -602,11 +757,7 @@ function DashboardView({
               <button
                 onClick={() => {
                   const { restore } = notice;
-                  if (restore)
-                    setTaskStatuses((statuses) => ({
-                      ...statuses,
-                      [restore.id]: restore.status,
-                    }));
+                  if (restore) setStatus(restore.id, restore.status);
                   else if (notice.undoId) void toggleItem(notice.undoId);
                   setNotice(null);
                 }}
