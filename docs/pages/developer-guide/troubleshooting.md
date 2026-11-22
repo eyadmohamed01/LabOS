@@ -44,6 +44,12 @@ Follow [Wi-Fi and LAN testing](./wifi-testing.md). The usual causes are a firewa
 
 The backend image failed to build. Run the same command and read the pip error. A missing system library in `backend/Dockerfile.dev` is the usual reason. Do not install the package only on the host. The test container would still miss it.
 
+## Auth returns 503, or login never returns a session
+
+`503` and `Supabase auth is not configured` means `SUPABASE_URL` or `SUPABASE_PUBLISHABLE_KEY` was empty when the backend started. Set both in `.env` and start the stack again. A running container keeps its old environment.
+
+`confirmation_required: true` means the Supabase project is waiting for the address to be confirmed. Login returns `Invalid login credentials` until then. The request shapes are in [Authentication](./authentication.md).
+
 ## Documentation file is missing or stale
 
 Run `make docs-build`, then open `docs/build/index.html` again. `make dev` does not refresh that file.
