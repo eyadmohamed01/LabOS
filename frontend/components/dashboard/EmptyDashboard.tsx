@@ -1,4 +1,8 @@
-import type { AttentionItem, ItemDetail } from "../../types/dashboard";
+import type {
+  AttentionItem,
+  ItemDetail,
+  TimelineItem,
+} from "../../types/dashboard";
 import type { TranslationKey } from "../../lib/i18n";
 import { AttentionPanel } from "./AttentionPanel";
 import { TimelinePanel } from "./TimelinePanel";
@@ -76,6 +80,7 @@ export function EmptyDashboard({
   items,
   completedIds,
   referenceDate,
+  events = [],
   onAddTask,
   onToggle,
   onDetail,
@@ -83,6 +88,8 @@ export function EmptyDashboard({
   items: AttentionItem[];
   completedIds: ReadonlySet<string>;
   referenceDate: string;
+  /** Events added in the empty workspace. */
+  events?: TimelineItem[];
   onAddTask: () => void;
   onToggle: (id: string) => void;
   onDetail: (detail: ItemDetail) => void;
@@ -93,7 +100,7 @@ export function EmptyDashboard({
       <WorkMetrics
         items={items}
         completedIds={completedIds}
-        schedule={[]}
+        schedule={events}
         referenceDate={referenceDate}
       />
       <div className="dashboard-zones">
@@ -115,7 +122,7 @@ export function EmptyDashboard({
           }
         />
         <TimelinePanel
-          items={[]}
+          items={events}
           onDetail={onDetail}
           emptyContent={
             <FirstUsePanel

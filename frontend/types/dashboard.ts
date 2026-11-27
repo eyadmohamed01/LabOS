@@ -64,4 +64,6 @@ export interface ItemDetail {
   projectId?: string;
   facts: { label: string; value: string }[];
   attentionId?: string;
+  /** Set for calendar events so the detail dialog can offer "Edit". */
+  eventId?: string;
 }

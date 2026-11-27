@@ -22,6 +22,8 @@ import type {
   Project,
   TimelineItem,
 } from "../../types/dashboard";
+import { statusLabels, taskDetail } from "../../lib/taskDetail";
+import type { Task } from "../../types/tasks";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
 import { useLocale } from "./LocaleProvider";
@@ -60,6 +62,7 @@ export function SearchDialog({
   onSelect,
   projects,
   timelineItems,
+  extraTasks = [],
 }: {
   items: AttentionItem[];
   completedIds: ReadonlySet<string>;
@@ -67,6 +70,8 @@ export function SearchDialog({
   onSelect: (detail: ItemDetail) => void;
   projects: Project[];
   timelineItems: TimelineItem[];
+  /** Fully specified workspace tasks (current statuses applied). Overview items are not repeated here. */
+  extraTasks?: Task[];
 }) {
   const { t, text, locale, formatDate } = useLocale();
   const [query, setQuery] = useState("");
@@ -77,8 +82,13 @@ export function SearchDialog({
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const listId = useId();
+  const taskById = useMemo(
+    () => new Map(extraTasks.map((task) => [task.id, task])),
+    [extraTasks],
+  );
   const indexed = useMemo<IndexedItem[]>(
     () => [
+
       ...items.map((item): IndexedItem => ({
         id: `task-${item.id}`,
         type: "task",
@@ -88,8 +98,30 @@ export function SearchDialog({
         project: getProject(item.projectId)?.name ?? "",
         people: getPerson(item.assigneeId)?.name ?? "",
         labels: `${item.label} ${text(item.label)} ${item.priority ?? "normal"} ${text(item.priority ?? "normal")}`,
-        detail: attentionDetail(item, locale),
+        // Prefer the full task detail (requester, creator, deadline…) when we have the task.
+        detail: taskById.has(item.id)
+          ? taskDetail(taskById.get(item.id)!, locale, extraTasks, timelineItems)
+          : attentionDetail(item, locale),
       })),
+      ...extraTasks
+        .filter((task) => !items.some((item) => item.id === task.id))
+        .map((task): IndexedItem => ({
+          id: `task-${task.id}`,
+          type: "task",
+          title: task.title,
+          description: task.description,
+          status:
+            task.status === "completed" || task.status === "cancelled"
+              ? "resolved"
+              : "open",
+          project: getProject(task.projectId)?.name ?? "",
+          people: [task.ownerId, task.requesterId]
+            .map((id) => (id ? getPerson(id)?.name : undefined))
+            .filter(Boolean)
+            .join(" "),
+          labels: `${statusLabels[task.status]} ${text(statusLabels[task.status])} ${task.milestone ? "Milestone" : ""} ${task.priority ?? "normal"} ${text(task.priority ?? "normal")}`,
+          detail: taskDetail(task, locale, extraTasks, timelineItems),
+        })),
       ...projects.map((item): IndexedItem => ({
         id: `project-${item.id}`,
         type: "project",
@@ -113,7 +145,17 @@ export function SearchDialog({
         detail: timelineDetail(item, locale),
       })),
     ],
-    [items, completedIds, projects, timelineItems, locale, text, formatDate],
+    [
+      items,
+      completedIds,
+      extraTasks,
+      taskById,
+      projects,
+      timelineItems,
+      locale,
+      text,
+      formatDate,
+    ],
   );
   const filters: SearchFilters = {
     status: status === "all" ? undefined : status,

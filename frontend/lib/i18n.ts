@@ -201,6 +201,123 @@ const german = {
   "Try another search term.": "Versuchen Sie einen anderen Suchbegriff.",
   "Sample data · Changes reset on refresh":
     "Beispieldaten · Änderungen werden beim Neuladen zurückgesetzt",
+  // Tasks page
+  "All tasks": "Alle Aufgaben",
+  "Tasks you own and tasks you are waiting on.":
+    "Aufgaben in Ihrer Verantwortung und Aufgaben, auf die Sie warten.",
+  "New task": "Neue Aufgabe",
+  "Saved task views": "Gespeicherte Aufgabenansichten",
+  Active: "Aktiv",
+  "My overdue": "Meine überfälligen",
+  "Waiting for others": "Warte auf andere",
+  "Others waiting for me": "Andere warten auf mich",
+  "Due this week": "Diese Woche fällig",
+  "Blocked milestones": "Blockierte Meilensteine",
+  Completed: "Abgeschlossen",
+  "Open and in-progress tasks.": "Offene und laufende Aufgaben.",
+  "Tasks you own whose deadline has passed.":
+    "Ihre Aufgaben, deren Frist abgelaufen ist.",
+  "Tasks owned by someone else that you requested.":
+    "Aufgaben anderer Personen, auf die Sie warten.",
+  "Tasks you own that someone else requested.":
+    "Ihre Aufgaben, auf die andere warten.",
+  "Your tasks due in the next 7 days.":
+    "Ihre Aufgaben mit Frist in den nächsten 7 Tagen.",
+  "Milestones with an open blocking task.":
+    "Meilensteine mit offener blockierender Aufgabe.",
+  "Completed and cancelled tasks.": "Abgeschlossene und abgebrochene Aufgaben.",
+  "Filter tasks": "Aufgaben filtern",
+  "Filter tasks by title or description…":
+    "Aufgaben nach Titel oder Beschreibung filtern…",
+  Person: "Person",
+  Anyone: "Beliebig",
+  "Sort by": "Sortieren nach",
+  "Newest first": "Neueste zuerst",
+  "Title A–Z": "Titel A–Z",
+  "Follow up": "Nachfragen",
+  "In progress": "In Bearbeitung",
+  Cancelled: "Abgebrochen",
+  Blocked: "Blockiert",
+  "Waiting for {name}": "Warte auf {name}",
+  "{name} is waiting for you": "{name} wartet auf Sie",
+  "No deadline": "Keine Frist",
+  "No reply for {count} working days":
+    "Seit {count} Arbeitstagen keine Antwort",
+  "{count} open blocker": "{count} offener Blocker",
+  "{count} open blockers": "{count} offene Blocker",
+  "No tasks yet": "Noch keine Aufgaben",
+  "Capture your first task and it will show up here.":
+    "Erfassen Sie Ihre erste Aufgabe, dann erscheint sie hier.",
+  "No matching tasks": "Keine passenden Aufgaben",
+  "No tasks in this view": "Keine Aufgaben in dieser Ansicht",
+  "Nothing in this view.": "In dieser Ansicht gibt es nichts.",
+  "Requested by": "Angefordert von",
+  "Linked event": "Verknüpfter Termin",
+  "No description.": "Keine Beschreibung.",
+  // Tasks form, calendar
+  "Add a task with an assignee, due date and details.": "Aufgabe mit Zuständigkeit, Frist und Details hinzufügen.",
+  "Add event": "Termin hinzufügen",
+  "Add task": "Aufgabe hinzufügen",
+  "Add your first task and it will show up here.": "Fügen Sie Ihre erste Aufgabe hinzu, dann erscheint sie hier.",
+  "Agenda": "Agenda",
+  "Attendees": "Teilnehmende",
+  "Blocks milestone": "Blockiert Meilenstein",
+  "Calendar navigation": "Kalendernavigation",
+  "Calendar views": "Kalenderansichten",
+  "Cancel": "Abbrechen",
+  "Confirm delete": "Löschen bestätigen",
+  "Created by": "Erstellt von",
+  "Created by {name}": "Erstellt von {name}",
+  "Date": "Datum",
+  "Day": "Tag",
+  "Delete event": "Termin löschen",
+  "Description": "Beschreibung",
+  "Due date": "Fälligkeitsdatum",
+  "Due time": "Fälligkeitszeit",
+  "Edit": "Bearbeiten",
+  "Edit event": "Termin bearbeiten",
+  "Edit task": "Aufgabe bearbeiten",
+  "End time": "Ende",
+  "Follow up after (working days)": "Nachfragen nach (Arbeitstagen)",
+  "Last contact": "Letzter Kontakt",
+  "Location": "Ort",
+  "Meeting": "Besprechung",
+  "Month": "Monat",
+  "More details": "Weitere Details",
+  "Next": "Weiter",
+  "No events or deadlines in this period.": "Keine Termine oder Fristen in diesem Zeitraum.",
+  "No linked event": "Kein verknüpfter Termin",
+  "Nobody (personal task)": "Niemand (persönliche Aufgabe)",
+  "Nothing": "Nichts",
+  "Previous": "Zurück",
+  "Save changes": "Änderungen speichern",
+  "Show task deadlines": "Aufgabenfristen anzeigen",
+  "Start time": "Beginn",
+  "The end time must be after the start time.": "Das Ende muss nach dem Beginn liegen.",
+  "This task is a milestone": "Diese Aufgabe ist ein Meilenstein",
+  "Title": "Titel",
+  "Type": "Typ",
+  "Week": "Woche",
+  "What needs to be done?": "Was ist zu tun?",
+  "{count} more": "{count} weitere",
+  "Task added.": "Aufgabe hinzugefügt.",
+  "Task updated.": "Aufgabe aktualisiert.",
+  "Event added.": "Termin hinzugefügt.",
+  "Event updated.": "Termin aktualisiert.",
+  "Event deleted.": "Termin gelöscht.",
+  // Review fixes: assigner, alerts, event-linked deadlines
+  "Assigned by": "Zugewiesen von",
+  "Assigned by {name}": "Zugewiesen von {name}",
+  "{count} days overdue": "{count} Tage überfällig",
+  Important: "Wichtig",
+  "Changing this deadline will remove its link to the event-relative offset.":
+    "Wenn Sie diese Frist ändern, wird die Verknüpfung mit dem Termin-Versatz entfernt.",
+  "Event updated. Linked task deadlines were recalculated.":
+    "Termin aktualisiert. Fristen verknüpfter Aufgaben wurden neu berechnet.",
+  "Calendar changed – a linked task is now overdue.":
+    "Kalender geändert – eine verknüpfte Aufgabe ist jetzt überfällig.",
+  "Event deleted. Linked tasks keep their deadlines.":
+    "Termin gelöscht. Verknüpfte Aufgaben behalten ihre Fristen.",
 } as const;
 
 export type TranslationKey = keyof typeof german;
@@ -224,7 +341,11 @@ export function translate(
 
 // Domain labels may be translated; research titles and user-authored content stay intact.
 export function translateLabel(locale: Locale, value: string): string {
-  return Object.hasOwn(dictionaries[locale], value)
-    ? translate(locale, value as TranslationKey)
+  if (Object.hasOwn(dictionaries[locale], value))
+    return translate(locale, value as TranslationKey);
+  // Derived Attention labels such as "5 days overdue".
+  const overdue = /^(\d+) days overdue$/.exec(value);
+  return overdue
+    ? translate(locale, "{count} days overdue", { count: overdue[1] })
     : value;
 }

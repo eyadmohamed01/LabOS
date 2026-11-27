@@ -1,0 +1,178 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  attentionToTask,
+  byNewest,
+  deadlineFromOffset,
+  deriveAttention,
+  relinkDeadlines,
+  shiftWorkingDays,
+  taskAlerts,
+  composeTasks,
+  isOverdue,
+  matchesView,
+  needsFollowUp,
+  openBlockers,
+  relationOf,
+  workingDaysBetween,
+} from "../lib/tasks.ts";
+
+const ME = "elena";
+const TODAY = "2026-11-18"; // Wednesday
+const task = (overrides = {}) => ({
+  id: "t",
+  title: "Task",
+  description: "",
+  ownerId: ME,
+  status: "open",
+  createdDate: "2026-11-02",
+  source: "manual",
+  ...overrides,
+});
+
+test("owner/requester decide the relationship; there is no waiting status", () => {
+  assert.equal(relationOf(task(), ME), "personal");
+  assert.equal(relationOf(task({ requesterId: ME }), ME), "personal");
+  assert.equal(relationOf(task({ ownerId: "alex", requesterId: ME }), ME), "waiting-for-others");
+  assert.equal(relationOf(task({ requesterId: "alex" }), ME), "others-waiting");
+  assert.equal(relationOf(task({ ownerId: "alex", requesterId: "taylor" }), ME), "third-party");
+});
+
+test("date-only deadline is overdue from 00:00 the following day", () => {
+  assert.equal(isOverdue(task({ dueDate: "2026-11-18" }), TODAY), false);
+  assert.equal(isOverdue(task({ dueDate: "2026-11-17" }), TODAY), true);
+  assert.equal(isOverdue(task({ dueDate: "2026-11-17", status: "completed" }), TODAY), false);
+  // timed deadline today: overdue only once the time has passed
+  const timed = task({ dueDate: TODAY, dueTime: "17:00" });
+  assert.equal(isOverdue(timed, TODAY, "16:59"), false);
+  assert.equal(isOverdue(timed, TODAY, "17:01"), true);
+});
+
+test("working days exclude Saturday and Sunday", () => {
+  assert.equal(workingDaysBetween("2026-11-13", "2026-11-16"), 1); // Fri → Mon
+  assert.equal(workingDaysBetween("2026-11-13", "2026-11-20"), 5); // Fri → next Fri
+  assert.equal(workingDaysBetween("2026-11-18", "2026-11-18"), 0);
+});
+
+test("follow-up needs: others own it, I requested it, deadline passed or none, quiet > threshold", () => {
+  const base = task({ ownerId: "alex", requesterId: ME, createdDate: "2026-11-02" });
+  assert.equal(needsFollowUp(base, ME, TODAY), true); // no deadline, 12 working days quiet
+  assert.equal(needsFollowUp({ ...base, dueDate: "2026-11-30" }, ME, TODAY), false); // not past due
+  assert.equal(needsFollowUp({ ...base, dueDate: "2026-11-10" }, ME, TODAY), true);
+  assert.equal(needsFollowUp({ ...base, lastContactDate: "2026-11-17" }, ME, TODAY), false); // recent contact
+  assert.equal(needsFollowUp({ ...base, status: "cancelled" }, ME, TODAY), false);
+  assert.equal(needsFollowUp({ ...base, ownerId: ME }, ME, TODAY), false);
+  // threshold is "exceeds": 5 working days quiet is not enough, 6 is
+  const five = { ...base, lastContactDate: "2026-11-11" }; // Wed → Wed = 5 working days
+  assert.equal(needsFollowUp(five, ME, TODAY), false);
+  assert.equal(needsFollowUp({ ...five, followUpAfterDays: 4 }, ME, TODAY), true);
+  assert.equal(needsFollowUp({ ...five, lastContactDate: "2026-11-10" }, ME, TODAY), true);
+});
+
+test("blockers are derived from relationships and disappear when completed", () => {
+  const milestone = task({ id: "m", milestone: true });
+  const blocker = task({ id: "b", blocksId: "m" });
+  const ctx = (tasks) => ({ me: ME, today: TODAY, tasks });
+  assert.equal(openBlockers(milestone, [milestone, blocker]).length, 1);
+  assert.equal(matchesView("blocked", milestone, ctx([milestone, blocker])), true);
+  const done = { ...blocker, status: "completed" };
+  assert.equal(matchesView("blocked", milestone, ctx([milestone, done])), false);
+});
+
+test("saved views", () => {
+  const ctx = (tasks) => ({ me: ME, today: TODAY, tasks });
+  const mineOverdue = task({ dueDate: "2026-11-10" });
+  const theirsOverdue = task({ ownerId: "alex", requesterId: ME, dueDate: "2026-11-10" });
+  assert.equal(matchesView("overdue", mineOverdue, ctx([])), true);
+  assert.equal(matchesView("overdue", theirsOverdue, ctx([])), false); // belongs to follow-up logic
+  assert.equal(matchesView("waiting", theirsOverdue, ctx([])), true);
+  assert.equal(matchesView("waiting-me", task({ requesterId: "alex" }), ctx([])), true);
+  assert.equal(matchesView("week", task({ dueDate: "2026-11-24" }), ctx([])), true);
+  assert.equal(matchesView("week", task({ dueDate: "2026-11-25" }), ctx([])), false);
+  assert.equal(matchesView("done", task({ status: "cancelled" }), ctx([])), true);
+});
+
+test("overview follow-ups owned by someone else become 'waiting for' tasks", () => {
+  const item = {
+    id: "budget", title: "x", kind: "follow-up", label: "", description: "",
+    assigneeId: "james", priority: "normal", dueDate: "2026-11-18",
+  };
+  const converted = attentionToTask(item, false, ME, TODAY);
+  assert.equal(relationOf(converted, ME), "waiting-for-others");
+  assert.equal(attentionToTask({ ...item, assigneeId: ME }, true, ME, TODAY).status, "completed");
+});
+
+test("newest first sorts by creation date, ties keep their original order", () => {
+  const older = task({ id: "older", createdDate: "2026-11-02" });
+  const newer = task({ id: "newer", createdDate: "2026-11-12" });
+  const tieA = task({ id: "tie-a", createdDate: "2026-11-12" });
+  const sorted = [older, newer, tieA].sort(byNewest).map((t) => t.id);
+  assert.deepEqual(sorted, ["newer", "tie-a", "older"]);
+});
+
+test("composeTasks merges overview items, workspace tasks and edits", () => {
+  const items = [
+    { id: "a", title: "A", kind: "overdue", label: "", description: "", assigneeId: ME, priority: "normal", dueDate: "2026-11-10" },
+    { id: "cal", title: "C", kind: "calendar", label: "", description: "", assigneeId: ME, priority: "high" },
+  ];
+  const seeds = [task({ id: "s", title: "Seed" })];
+  const make = (completed, edits) => composeTasks({ items, completed: new Set(completed), seeds, edits, me: ME, today: TODAY });
+  assert.deepEqual(make([], {}).map((t) => t.id), ["a", "s"]); // calendar warning skipped
+  assert.equal(make([], { a: { status: "in-progress" } })[0].status, "in-progress");
+  assert.equal(make(["a"], { a: { status: "in-progress" } })[0].status, "completed"); // Overview done-ness wins
+  assert.equal(make(["a"], { a: { status: "cancelled" } })[0].status, "cancelled");
+  assert.equal(make([], { s: { title: "Edited" } })[1].title, "Edited");
+  // clearing the requester in an edit really clears it
+  const waiting = composeTasks({
+    items: [{ ...items[0], kind: "follow-up", assigneeId: "alex" }],
+    completed: new Set(), seeds: [], edits: { a: { requesterId: undefined } }, me: ME, today: TODAY,
+  });
+  assert.equal(relationOf(waiting[0], ME), "personal");
+});
+
+test("working-day shifts skip weekends (§19)", () => {
+  assert.equal(shiftWorkingDays("2026-11-23", -1), "2026-11-20"); // Mon − 1 working day = Fri
+  assert.equal(shiftWorkingDays("2026-11-25", -1), "2026-11-24"); // Wed − 1 = Tue
+  assert.equal(shiftWorkingDays("2026-11-20", 1), "2026-11-23"); // Fri + 1 = Mon
+  assert.equal(shiftWorkingDays("2026-11-21", -1), "2026-11-20"); // Sat − 1 = Fri
+});
+
+test("moving an event recalculates linked deadlines; offset 0 follows date and time", () => {
+  const slides = task({ id: "slides", eventId: "seminar", offset: { amount: -1, unit: "working-days" }, dueDate: "2026-11-18" });
+  const abstract = task({ id: "abs", eventId: "abstract", offset: { amount: 0, unit: "calendar-days" }, dueDate: "2026-11-18", dueTime: "17:00" });
+  const free = task({ id: "free", eventId: "seminar", dueDate: "2026-11-18" }); // linked without offset: untouched
+  const all = [slides, abstract, free];
+  assert.deepEqual(relinkDeadlines(all, { id: "seminar", date: "2026-11-19", time: "14:00" }), []); // unchanged
+  assert.deepEqual(relinkDeadlines(all, { id: "seminar", date: "2026-11-25", time: "14:00" }), [{ id: "slides", dueDate: "2026-11-24" }]);
+  assert.deepEqual(relinkDeadlines(all, { id: "abstract", date: "2026-11-20", time: "09:00" }), [{ id: "abs", dueDate: "2026-11-20", dueTime: "09:00" }]);
+  assert.deepEqual(deadlineFromOffset({ date: "2026-11-23" }, { amount: 2, unit: "calendar-days" }), { dueDate: "2026-11-25" });
+});
+
+test("attention labels follow the current task state", () => {
+  const labels = { overdue: (n) => `${n} days overdue`, due: (d) => `Due ${d}` };
+  const item = { id: "e", title: "E", kind: "overdue", label: "2 days overdue", description: "", assigneeId: ME, priority: "high", dueDate: "2026-11-16" };
+  const derive = (t) => deriveAttention([item], [task({ id: "e", ...t })], ME, TODAY, labels)[0];
+  assert.equal(derive({ dueDate: "2026-11-16" }).label, "2 days overdue");
+  assert.equal(derive({ dueDate: "2026-11-10" }).label, "8 days overdue"); // refreshed, not frozen
+  const moved = derive({ dueDate: "2026-12-10" });
+  assert.deepEqual([moved.kind, moved.label], ["capture", "Due 2026-12-10"]); // no longer overdue, never dropped
+  assert.equal(derive({ dueDate: "2026-11-16", ownerId: "alex", requesterId: ME }).kind, "follow-up"); // reassigned
+  assert.equal(derive({ dueDate: "2026-11-16", status: "completed" }).label, "2 days overdue"); // done items untouched
+  const later = deriveAttention([{ ...item, kind: "capture", label: "x" }], [task({ id: "e", dueDate: "2026-11-01" })], ME, TODAY, labels)[0];
+  assert.equal(later.kind, "overdue"); // an item that BECOMES overdue is promoted
+});
+
+test("bell alerts: one per task, strongest reason, mine vs waiting", () => {
+  const tasks = [
+    task({ id: "over", dueDate: "2026-11-10" }),
+    task({ id: "fu", ownerId: "alex", requesterId: ME, createdDate: "2026-11-02" }),
+    task({ id: "imp", dueDate: "2026-11-24", priority: "high" }),
+    task({ id: "soon", dueDate: "2026-11-20" }),
+    task({ id: "later", dueDate: "2026-12-30" }),
+    task({ id: "far-high", dueDate: "2026-12-30", priority: "high" }),
+    task({ id: "done", dueDate: "2026-11-10", status: "completed" }),
+    task({ id: "theirs", ownerId: "alex", dueDate: "2026-11-10" }),
+  ];
+  const alerts = taskAlerts(tasks, ME, TODAY).map((a) => `${a.task.id}:${a.reason}`);
+  assert.deepEqual(alerts, ["over:overdue", "fu:follow-up", "imp:important", "soon:upcoming"]);
+});
