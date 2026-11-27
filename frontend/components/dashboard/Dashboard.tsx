@@ -15,7 +15,7 @@ import {
   workspaceDate,
   people,
 } from "../../lib/dashboardData";
-import type { AttentionItem, ItemDetail } from "../../types/dashboard";
+import type { AttentionItem, ItemDetail, Section } from "../../types/dashboard";
 import { ActiveProjects } from "./ActiveProjects";
 import { AttentionPanel } from "./AttentionPanel";
 import { Dialog } from "./Dialog";
@@ -26,6 +26,9 @@ import { QuickCapture } from "./QuickCapture";
 import { SearchDialog } from "./SearchDialog";
 import { Sidebar } from "./Sidebar";
 import { TimelinePanel } from "./TimelinePanel";
+import { TasksView } from "./TasksView";
+import { workspaceTasks } from "../../lib/taskData";
+import type { TaskStatus } from "../../types/tasks";
 import { WorkInsights, WorkMetrics } from "./WorkMetrics";
 import { ThemeToggle } from "./ThemeToggle";
 import { EmptyDashboard } from "./EmptyDashboard";
@@ -33,7 +36,13 @@ import type { DashboardPreview } from "../../lib/dashboardPreview";
 import { createCaptureId } from "../../lib/captureId";
 
 type Overlay = "search" | "notifications" | "navigation" | null;
-type Notice = { message: string; undoId?: string };
+type Notice = {
+  message: string;
+  /** Overview items: Undo toggles the completion again. */
+  undoId?: string;
+  /** Workspace tasks: Undo restores this exact previous status. */
+  restore?: { id: string; status: TaskStatus };
+};
 
 export function Dashboard({
   initialPreview = "populated",
@@ -79,6 +88,11 @@ function DashboardView({
       [preview]: update(previous[preview]),
     }));
   }
+  const [section, setSection] = useState<Section>("overview");
+  // Status changes for the fully specified sample tasks (see lib/taskData.ts).
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, TaskStatus>>(
+    {},
+  );
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [detail, setDetail] = useState<ItemDetail | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -102,9 +116,20 @@ function DashboardView({
     window.history.replaceState(null, "", url);
   }
 
+  const pageTitle = section === "tasks" ? text("Tasks") : t("Overview");
+
   useEffect(() => {
-    document.title = `${t("Overview")} · LabOS`;
-  }, [t]);
+    document.title = `${pageTitle} · LabOS`;
+  }, [pageTitle]);
+
+  function navigate(next: Section) {
+    setOverlay(null);
+    if (next !== "overview" && next !== "tasks") return;
+    const same = next === section;
+    setSection(next);
+    requestAnimationFrame(() => headingRef.current?.focus());
+    window.scrollTo({ top: 0, behavior: same ? "smooth" : "auto" });
+  }
 
   const closeNavigation = useCallback(() => {
     setOverlay(null);
@@ -188,7 +213,41 @@ function DashboardView({
     if (project) openDetail(projectDetail(project, locale));
   }
 
+  // Workspace tasks with their current statuses, shared by the search index.
+  const currentWorkspaceTasks = firstUse
+    ? []
+    : workspaceTasks.map((task) => ({
+        ...task,
+        status: taskStatuses[task.id] ?? task.status,
+      }));
+
+  function isDone(id: string) {
+    if (items.some((item) => item.id === id)) return completedIds.has(id);
+    const base = workspaceTasks.find((task) => task.id === id);
+    const status = taskStatuses[id] ?? base?.status;
+    return status === "completed" || status === "cancelled";
+  }
+
+  function toggleSeedTask(id: string) {
+    const base = workspaceTasks.find((task) => task.id === id);
+    if (!base) return;
+    const previous = taskStatuses[id] ?? base.status;
+    const wasDone = previous === "completed" || previous === "cancelled";
+    setTaskStatuses((statuses) => ({
+      ...statuses,
+      [id]: wasDone ? "open" : "completed",
+    }));
+    setNotice({
+      message: wasDone ? "Item reopened." : "Item resolved.",
+      restore: { id, status: previous },
+    });
+  }
+
   async function toggleItem(id: string) {
+    if (!items.some((item) => item.id === id)) {
+      toggleSeedTask(id);
+      return;
+    }
     if (resolvingIds.current.has(id)) return;
     resolvingIds.current.add(id);
     const active = document.activeElement;
@@ -288,11 +347,8 @@ function DashboardView({
           firstUse={firstUse}
           onProject={openProject}
           onClose={closeNavigation}
-          onOverview={() => {
-            setOverlay(null);
-            headingRef.current?.focus();
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+          section={section}
+          onNavigate={navigate}
         />
       </div>
       <div className="main-shell" inert={overlay === "navigation"}>
@@ -309,7 +365,7 @@ function DashboardView({
             </button>
             <span className="breadcrumb-workspace">{t("Workspace")}</span>
             <Icon name="chevron" size={13} />
-            <span>{t("Overview")}</span>
+            <span>{pageTitle}</span>
           </div>
           <div className="topbar-controls">
             <button
@@ -347,7 +403,7 @@ function DashboardView({
         <main id="main-content" className="dashboard-main">
           <div className="page-heading">
             <h1 ref={headingRef} tabIndex={-1}>
-              {t("Overview")}
+              {pageTitle}
             </h1>
             <time dateTime={workspaceDate}>
               {formatDate(workspaceDate, {
@@ -376,7 +432,7 @@ function DashboardView({
               </label>
             </div>
           )}
-          {firstUse && (
+          {firstUse && section === "overview" && (
             <div className="first-use-intro">
               <h2>{t("Set up your workspace")}</h2>
               <p>
@@ -392,7 +448,19 @@ function DashboardView({
             inputRef={captureRef}
             onCapture={capture}
           />
-          {firstUse ? (
+          {section === "tasks" ? (
+            <TasksView
+              items={items}
+              completedIds={completedIds}
+              seedTasks={firstUse ? [] : workspaceTasks}
+              statusOverrides={taskStatuses}
+              projects={activeProjects}
+              people={firstUse ? [] : people}
+              onToggle={toggleItem}
+              onDetail={openDetail}
+              onAddTask={() => captureRef.current?.focus()}
+            />
+          ) : firstUse ? (
             <EmptyDashboard
               items={items}
               completedIds={completedIds}
@@ -447,6 +515,7 @@ function DashboardView({
           completedIds={completedIds}
           projects={activeProjects}
           timelineItems={schedule}
+          extraTasks={currentWorkspaceTasks}
           onClose={() => setOverlay(null)}
           onSelect={openDetail}
         />
@@ -502,7 +571,7 @@ function DashboardView({
           {detail.attentionId && (
             <div className="dialog-actions">
               <span>
-                {t(completedIds.has(detail.attentionId) ? "Resolved" : "Open")}
+                {t(isDone(detail.attentionId) ? "Resolved" : "Open")}
               </span>
               <button
                 className="button button-primary"
@@ -513,7 +582,7 @@ function DashboardView({
               >
                 <Icon name="check" size={16} />
                 {t(
-                  completedIds.has(detail.attentionId)
+                  isDone(detail.attentionId)
                     ? "Reopen item"
                     : "Mark resolved",
                 )}
@@ -529,10 +598,16 @@ function DashboardView({
               <Icon name="check" size={17} />
             </span>
             <span>{text(notice.message)}</span>
-            {notice.undoId && (
+            {(notice.undoId || notice.restore) && (
               <button
                 onClick={() => {
-                  if (notice.undoId) void toggleItem(notice.undoId);
+                  const { restore } = notice;
+                  if (restore)
+                    setTaskStatuses((statuses) => ({
+                      ...statuses,
+                      [restore.id]: restore.status,
+                    }));
+                  else if (notice.undoId) void toggleItem(notice.undoId);
                   setNotice(null);
                 }}
               >

@@ -21,7 +21,8 @@ export function Sidebar({
   attentionCount,
   onProject,
   onClose,
-  onOverview,
+  section,
+  onNavigate,
   projects,
   memberCount,
   firstUse = false,
@@ -30,7 +31,8 @@ export function Sidebar({
   attentionCount: number;
   onProject: (id: string) => void;
   onClose: () => void;
-  onOverview: () => void;
+  section: Section;
+  onNavigate: (section: Section) => void;
   projects: Project[];
   memberCount: number;
   firstUse?: boolean;
@@ -50,7 +52,7 @@ export function Sidebar({
           className="brand"
           onClick={(event) => {
             event.preventDefault();
-            onOverview();
+            onNavigate("overview");
           }}
           aria-label={t("LabOS overview")}
         >
@@ -82,24 +84,26 @@ export function Sidebar({
       </div>
       <p className="sidebar-label">{t("WORKSPACE")}</p>
       <nav aria-label={t("Main navigation")}>
-        {navigation.map(({ id, label }) => (
-          <button
-            key={id}
-            className={`nav-item${id === "overview" ? " nav-active" : " nav-disabled"}`}
-            aria-current={id === "overview" ? "page" : undefined}
-            disabled={id !== "overview"}
-            title={
-              id !== "overview" ? t("Not available in this preview") : undefined
-            }
-            onClick={onOverview}
-          >
-            <Icon name={id} size={19} />
-            <span>{text(label)}</span>
-            {id === "tasks" && (
-              <span className="nav-count">{attentionCount}</span>
-            )}
-          </button>
-        ))}
+        {navigation.map(({ id, label }) => {
+          const available = id === "overview" || id === "tasks";
+          const active = id === section;
+          return (
+            <button
+              key={id}
+              className={`nav-item${active ? " nav-active" : available ? "" : " nav-disabled"}`}
+              aria-current={active ? "page" : undefined}
+              disabled={!available}
+              title={!available ? t("Not available in this preview") : undefined}
+              onClick={() => onNavigate(id)}
+            >
+              <Icon name={id} size={19} />
+              <span>{text(label)}</span>
+              {id === "tasks" && (
+                <span className="nav-count">{attentionCount}</span>
+              )}
+            </button>
+          );
+        })}
       </nav>
       <div className="sidebar-project-heading">
         <p className="sidebar-label">{t("YOUR PROJECTS")}</p>
