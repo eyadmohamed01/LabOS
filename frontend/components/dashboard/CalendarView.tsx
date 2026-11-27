@@ -20,8 +20,9 @@ import { Icon } from "./Icon";
 import { useLocale } from "./LocaleProvider";
 
 const HOUR = 48; // px per hour in the time grid
-const FIRST_HOUR = 6;
-const LAST_HOUR = 22;
+// The grid covers the whole day so early (01:00) and late (23:00) events are placed correctly.
+const FIRST_HOUR = 0;
+const LAST_HOUR = 24;
 const MAX_CHIPS = 3;
 
 const modes: { id: CalendarMode; label: "Month" | "Week" | "Day" | "Agenda" }[] = [

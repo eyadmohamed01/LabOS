@@ -47,8 +47,10 @@ export function TaskDialog({
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [ownerId, setOwnerId] = useState(task?.ownerId ?? me);
-  const [requesterId, setRequesterId] = useState(task?.requesterId ?? "");
-  const [createdById, setCreatedById] = useState(task?.createdById ?? me);
+  // The person who assigns the task is also its creator and the one waiting for the result.
+  const [assignedById, setAssignedById] = useState(
+    task?.requesterId ?? task?.createdById ?? me,
+  );
   const [dueDate, setDueDate] = useState(task?.dueDate ?? "");
   const [dueTime, setDueTime] = useState(task?.dueTime ?? "");
   const [projectId, setProjectId] = useState(task?.projectId ?? "");
@@ -77,6 +79,13 @@ export function TaskDialog({
     }
   }
 
+  // §19: editing a derived deadline (or the linked event) turns the task into an absolute one.
+  const deadlineEdited =
+    !!task?.offset &&
+    (dueDate !== (task.dueDate ?? "") || (dueTime || "") !== (task.dueTime ?? ""));
+  const keepOffset =
+    !!task?.offset && !deadlineEdited && eventId === (task.eventId ?? "");
+
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!title.trim()) return;
@@ -86,12 +95,15 @@ export function TaskDialog({
       title: title.trim(),
       description: description.trim(),
       ownerId,
-      createdById: createdById || undefined,
-      requesterId: requesterId || undefined,
+      createdById: assignedById || undefined,
+      // Assigning to someone else means waiting for them; assigning to yourself is a personal task.
+      requesterId:
+        assignedById && assignedById !== ownerId ? assignedById : undefined,
       dueDate: dueDate || undefined,
       dueTime: dueDate && dueTime ? dueTime : undefined,
       projectId: projectId || undefined,
       eventId: eventId || undefined,
+      offset: keepOffset ? task?.offset : undefined,
       priority: priority as Task["priority"],
       status,
       followUpAfterDays: followUp ? Math.max(1, Number(followUp)) : undefined,
@@ -144,24 +156,10 @@ export function TaskDialog({
           </select>
         </label>
         <label className="field">
-          <span>{t("Requested by")}</span>
+          <span>{t("Assigned by")}</span>
           <select
-            value={requesterId}
-            onChange={(event) => setRequesterId(event.target.value)}
-          >
-            <option value="">{t("Nobody (personal task)")}</option>
-            {people.map((person) => (
-              <option key={person.id} value={person.id}>
-                {person.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>{t("Created by")}</span>
-          <select
-            value={createdById}
-            onChange={(event) => setCreatedById(event.target.value)}
+            value={assignedById}
+            onChange={(event) => setAssignedById(event.target.value)}
           >
             {choices.map((person) => (
               <option key={person.id} value={person.id}>
@@ -198,6 +196,13 @@ export function TaskDialog({
             onChange={(event) => setDueTime(event.target.value)}
           />
         </label>
+        {deadlineEdited && (
+          <p className="field-error field-wide" role="status">
+            {t(
+              "Changing this deadline will remove its link to the event-relative offset.",
+            )}
+          </p>
+        )}
         <label className="field">
           <span>{t("Priority")}</span>
           <select value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)}>

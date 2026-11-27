@@ -345,9 +345,9 @@ export function TasksView({
                             {relation}
                           </span>
                         )}
-                        {creator && (
+                        {creator && creator.id !== task.ownerId && (
                           <span className="task-meta-text">
-                            {t("Created by {name}", { name: creator.name })}
+                            {t("Assigned by {name}", { name: creator.name })}
                           </span>
                         )}
                         {quiet !== null && (

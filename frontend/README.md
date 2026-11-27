@@ -41,25 +41,26 @@ Keyboard support includes `N` to focus capture, `/` to open search, `Escape` to 
 
 Sidebar → **Tasks**, built from the Implementation Brief (§8–§10, §15, §24, §34).
 
-- **One way to add a task:** the *Add task* button (or the `N` key) opens `TaskDialog.tsx`: title, description, assigned to, requested by, created by, due date and time, project, priority, plus *More details* (linked event, follow-up threshold, last contact, milestone, blocks milestone). Every task has an **Edit** button on its row and in its detail dialog; editing also offers the status (open / in progress / completed / cancelled).
+- **One way to add a task:** the *Add task* button (or the `N` key) opens `TaskDialog.tsx`: title, description, assigned to, assigned by (defaults to you; the person who assigns a task is its creator and the one waiting for the result, and assigning to yourself makes it personal), due date and time, project, priority, plus *More details* (linked event, follow-up threshold, last contact, milestone, blocks milestone). Every task has an **Edit** button on its row and in its detail dialog; editing also offers the status (open / in progress / completed / cancelled).
 - `types/tasks.ts` is the Task model. There is deliberately **no "waiting" status**; waiting is derived from owner/requester.
 - `lib/tasks.ts` holds the rules as pure functions: owner/requester relationship, overdue, Mon–Fri working days, the follow-up trigger (5 working days by default), derived blockers, the saved views, and `composeTasks`, which merges Overview items, workspace tasks and edits into the single list used by the Tasks page, search and calendar.
 - Saved views (tabs with live counts): Active, My overdue, Waiting for others, Others waiting for me, Due this week, Blocked milestones, Completed. Filter dropdowns only offer projects and people that exist in the *current* view and are hidden when there is nothing to choose.
-- Overview items and tasks stay in sync: new tasks also appear in Attention, metrics and search; edits update the Overview item. The Overview's own "2 days overdue" label is static sample text and does not recompute when a due date is edited.
+- Overview items and tasks stay in sync: new tasks also appear in Attention, metrics and search. Attention, metrics, project counts and the bell are **derived from the current task state** (`deriveAttention`, `taskAlerts` in `lib/tasks.ts`): after a due date or assignee changes, labels such as "2 days overdue" are recalculated, and a task that is no longer overdue is relabelled with its due date instead of disappearing.
+- **Bell alerts** come from all tasks (not only Overview items), one alert per task, strongest reason wins: *overdue* (my task, deadline passed) > *follow-up* (§24 trigger) > *important* (my high-priority task due within 7 days) > *upcoming* (my task due within 2 days), plus calendar-conflict warnings.
 - `lib/taskData.ts` is fictional sample data. Tests: `node --test tests/*.test.mjs`.
 
 ## Calendar
 
-Sidebar → **Calendar** (`CalendarView.tsx`, maths in `lib/calendar.ts`): Month, Week and Day (time grid, overlapping events side by side, all-day row), and a 30-day Agenda. Weeks start on Monday. Task deadlines owned by the current user can be overlaid. Overlapping meetings are flagged. *Add event* / *Edit* / *Delete* use `EventDialog.tsx`; new events also show in the Overview timeline. Events use the existing three kinds (meeting, deadline, milestone) and are single-day. Recurrence, multi-day events and ICS import are not implemented (the brief requires a maintained ICS library for that).
+Sidebar → **Calendar** (`CalendarView.tsx`, maths in `lib/calendar.ts`): Month, Week and Day (time grid, overlapping events side by side, all-day row), and a 30-day Agenda. Weeks start on Monday. Task deadlines owned by the current user can be overlaid. Overlapping meetings are flagged. The Week and Day grids cover the full day (00:00–24:00), so early and late events are placed correctly. *Add event* / *Edit* / *Delete* use `EventDialog.tsx`; new events also show in the Overview timeline. **Moving an event recalculates the deadlines of tasks linked to it with an offset** (calendar or working days, §19; offset 0 follows the event's date and time) and says so when a task becomes overdue. Editing such a deadline by hand (or changing its linked event) removes the offset after a warning. **Deleting an event** keeps its linked tasks with their current deadline and removes the link. Events use the existing three kinds (meeting, deadline, milestone) and are single-day. Recurrence, multi-day events and ICS import are not implemented (the brief requires a maintained ICS library for that).
 
 ## Supabase (prepared, not connected)
 
 Nothing calls Supabase yet; the app uses in-memory sample data.
 
 - `lib/taskRepository.ts` is the only persistence layer: `list`, `get`, `create`, `update`, `upsertMany`, `remove`, with a Supabase (REST, no extra dependency) and an in-memory implementation. `getTaskRepository()` returns Supabase only when real keys are present.
-- `supabase/schema.sql` is the table definition to run in the Supabase SQL editor (includes a placeholder row-level-security policy that must be tightened).
-- `.env.example` holds the placeholders (`YOUR-…`). Copy it to `.env.local`. The **service-role key is for scripts only**; never prefix it with `NEXT_PUBLIC_` or import it from a component.
-- `scripts/seed-supabase.mjs` populates the table from `lib/taskData.ts`: dry run by default, `--apply` to send (`node --env-file=.env.local scripts/seed-supabase.mjs --apply`).
+- `supabase/schema.sql` (repository root) is the table definition to run in the Supabase SQL editor. Row Level Security is **enabled with no policies**, so the browser cannot read or write anything until proper workspace-scoped policies exist; a commented template for workspace membership is included. Never add a blanket `using (true)` policy.
+- The repository-root `.env.example` can hold the placeholders (`YOUR-…`). Copy it to `.env.local`. The **service-role key is for scripts only**; never prefix it with `NEXT_PUBLIC_` or import it from a component.
+- `frontend/scripts/seed-supabase.mjs` populates the table from `lib/taskData.ts`: dry run by default, `--apply` to send (`node --env-file=.env.local scripts/seed-supabase.mjs --apply`).
 - To connect later: load with `getTaskRepository().list()` in `Dashboard.tsx` and call `create` / `update` from `saveTask`.
 
 ## Empty dashboard preview

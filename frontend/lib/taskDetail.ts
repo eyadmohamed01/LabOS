@@ -36,8 +36,9 @@ export function taskDetail(
         label: "Assigned to",
         value: getPerson(task.ownerId)?.name ?? "Unassigned",
       },
-      ...(requester ? [{ label: "Requested by", value: requester.name }] : []),
-      ...(creator ? [{ label: "Created by", value: creator.name }] : []),
+      ...(requester ?? creator
+        ? [{ label: "Assigned by", value: (requester ?? creator)!.name }]
+        : []),
       { label: "Created", value: date(task.createdDate) },
       {
         label: "Due",

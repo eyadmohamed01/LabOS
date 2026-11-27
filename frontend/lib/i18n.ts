@@ -305,6 +305,19 @@ const german = {
   "Event added.": "Termin hinzugefügt.",
   "Event updated.": "Termin aktualisiert.",
   "Event deleted.": "Termin gelöscht.",
+  // Review fixes: assigner, alerts, event-linked deadlines
+  "Assigned by": "Zugewiesen von",
+  "Assigned by {name}": "Zugewiesen von {name}",
+  "{count} days overdue": "{count} Tage überfällig",
+  Important: "Wichtig",
+  "Changing this deadline will remove its link to the event-relative offset.":
+    "Wenn Sie diese Frist ändern, wird die Verknüpfung mit dem Termin-Versatz entfernt.",
+  "Event updated. Linked task deadlines were recalculated.":
+    "Termin aktualisiert. Fristen verknüpfter Aufgaben wurden neu berechnet.",
+  "Calendar changed – a linked task is now overdue.":
+    "Kalender geändert – eine verknüpfte Aufgabe ist jetzt überfällig.",
+  "Event deleted. Linked tasks keep their deadlines.":
+    "Termin gelöscht. Verknüpfte Aufgaben behalten ihre Fristen.",
 } as const;
 
 export type TranslationKey = keyof typeof german;
@@ -328,7 +341,11 @@ export function translate(
 
 // Domain labels may be translated; research titles and user-authored content stay intact.
 export function translateLabel(locale: Locale, value: string): string {
-  return Object.hasOwn(dictionaries[locale], value)
-    ? translate(locale, value as TranslationKey)
+  if (Object.hasOwn(dictionaries[locale], value))
+    return translate(locale, value as TranslationKey);
+  // Derived Attention labels such as "5 days overdue".
+  const overdue = /^(\d+) days overdue$/.exec(value);
+  return overdue
+    ? translate(locale, "{count} days overdue", { count: overdue[1] })
     : value;
 }

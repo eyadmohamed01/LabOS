@@ -3,6 +3,11 @@ import test from "node:test";
 import {
   attentionToTask,
   byNewest,
+  deadlineFromOffset,
+  deriveAttention,
+  relinkDeadlines,
+  shiftWorkingDays,
+  taskAlerts,
   composeTasks,
   isOverdue,
   matchesView,
@@ -123,4 +128,51 @@ test("composeTasks merges overview items, workspace tasks and edits", () => {
     completed: new Set(), seeds: [], edits: { a: { requesterId: undefined } }, me: ME, today: TODAY,
   });
   assert.equal(relationOf(waiting[0], ME), "personal");
+});
+
+test("working-day shifts skip weekends (§19)", () => {
+  assert.equal(shiftWorkingDays("2026-11-23", -1), "2026-11-20"); // Mon − 1 working day = Fri
+  assert.equal(shiftWorkingDays("2026-11-25", -1), "2026-11-24"); // Wed − 1 = Tue
+  assert.equal(shiftWorkingDays("2026-11-20", 1), "2026-11-23"); // Fri + 1 = Mon
+  assert.equal(shiftWorkingDays("2026-11-21", -1), "2026-11-20"); // Sat − 1 = Fri
+});
+
+test("moving an event recalculates linked deadlines; offset 0 follows date and time", () => {
+  const slides = task({ id: "slides", eventId: "seminar", offset: { amount: -1, unit: "working-days" }, dueDate: "2026-11-18" });
+  const abstract = task({ id: "abs", eventId: "abstract", offset: { amount: 0, unit: "calendar-days" }, dueDate: "2026-11-18", dueTime: "17:00" });
+  const free = task({ id: "free", eventId: "seminar", dueDate: "2026-11-18" }); // linked without offset: untouched
+  const all = [slides, abstract, free];
+  assert.deepEqual(relinkDeadlines(all, { id: "seminar", date: "2026-11-19", time: "14:00" }), []); // unchanged
+  assert.deepEqual(relinkDeadlines(all, { id: "seminar", date: "2026-11-25", time: "14:00" }), [{ id: "slides", dueDate: "2026-11-24" }]);
+  assert.deepEqual(relinkDeadlines(all, { id: "abstract", date: "2026-11-20", time: "09:00" }), [{ id: "abs", dueDate: "2026-11-20", dueTime: "09:00" }]);
+  assert.deepEqual(deadlineFromOffset({ date: "2026-11-23" }, { amount: 2, unit: "calendar-days" }), { dueDate: "2026-11-25" });
+});
+
+test("attention labels follow the current task state", () => {
+  const labels = { overdue: (n) => `${n} days overdue`, due: (d) => `Due ${d}` };
+  const item = { id: "e", title: "E", kind: "overdue", label: "2 days overdue", description: "", assigneeId: ME, priority: "high", dueDate: "2026-11-16" };
+  const derive = (t) => deriveAttention([item], [task({ id: "e", ...t })], ME, TODAY, labels)[0];
+  assert.equal(derive({ dueDate: "2026-11-16" }).label, "2 days overdue");
+  assert.equal(derive({ dueDate: "2026-11-10" }).label, "8 days overdue"); // refreshed, not frozen
+  const moved = derive({ dueDate: "2026-12-10" });
+  assert.deepEqual([moved.kind, moved.label], ["capture", "Due 2026-12-10"]); // no longer overdue, never dropped
+  assert.equal(derive({ dueDate: "2026-11-16", ownerId: "alex", requesterId: ME }).kind, "follow-up"); // reassigned
+  assert.equal(derive({ dueDate: "2026-11-16", status: "completed" }).label, "2 days overdue"); // done items untouched
+  const later = deriveAttention([{ ...item, kind: "capture", label: "x" }], [task({ id: "e", dueDate: "2026-11-01" })], ME, TODAY, labels)[0];
+  assert.equal(later.kind, "overdue"); // an item that BECOMES overdue is promoted
+});
+
+test("bell alerts: one per task, strongest reason, mine vs waiting", () => {
+  const tasks = [
+    task({ id: "over", dueDate: "2026-11-10" }),
+    task({ id: "fu", ownerId: "alex", requesterId: ME, createdDate: "2026-11-02" }),
+    task({ id: "imp", dueDate: "2026-11-24", priority: "high" }),
+    task({ id: "soon", dueDate: "2026-11-20" }),
+    task({ id: "later", dueDate: "2026-12-30" }),
+    task({ id: "far-high", dueDate: "2026-12-30", priority: "high" }),
+    task({ id: "done", dueDate: "2026-11-10", status: "completed" }),
+    task({ id: "theirs", ownerId: "alex", dueDate: "2026-11-10" }),
+  ];
+  const alerts = taskAlerts(tasks, ME, TODAY).map((a) => `${a.task.id}:${a.reason}`);
+  assert.deepEqual(alerts, ["over:overdue", "fu:follow-up", "imp:important", "soon:upcoming"]);
 });
